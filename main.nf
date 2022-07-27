@@ -17,7 +17,7 @@ include { fastq_ingress } from './lib/fastqingress'
 include { start_ping; end_ping } from './lib/ping'
 
 
-process summariseReads {
+process combineFastq {
     // concatenate fastq and fastq.gz in a dir
 
     label "wfflu"
@@ -25,10 +25,36 @@ process summariseReads {
     input:
         tuple path(directory), val(meta)
     output:
-        path "${meta.sample_id}.stats"
+        tuple val(meta.sample_id), val(meta.type), path("${meta.sample_id}.fastq.gz"), emit: fastq
+        path "${meta.sample_id}.stats", emit: fastqstats
     shell:
     """
-    fastcat -s ${meta.sample_id} -r ${meta.sample_id}.stats -x ${directory} > /dev/null
+    fastcat -s ${meta.sample_id} -r ${meta.sample_id}.stats -x ${directory} | seqkit seq -m 200 - > ${meta.sample_id}.fastq
+    gzip ${meta.sample_id}.fastq
+    """
+}
+
+
+process alignReads {
+    // concatenate fastq and fastq.gz in a dir
+
+    label "wfflu"
+    cpus 1
+    input:
+        tuple path(directory), val(meta)
+        path reference
+    output:
+        tuple val(sample_id), val(type), path("${sample_id}.bam"), path("${sample_id}.bam.bai"), emit: alignments
+        tuple path("${sample_id}.bamstats"), path("${sample_id}.bam.summary"), emit: bamstats
+    shell:
+    """
+    mini_align -i ${sample_fastq} -r ${reference} -p ${meta.sample_id}_tmp -t $task.cpus -m
+
+    # keep only mapped reads
+    samtools view --write-index -F 4 ${meta.sample_id}_tmp.bam -o ${meta.sample_id}.bam##idx##${meta.sample_id}.bam.bai
+
+    # get stats from bam
+    stats_from_bam -o ${sample_id}.bamstats -s ${sample_id}.bam.summary -t $task.cpus ${sample_id}.bam
     """
 }
 
@@ -100,13 +126,24 @@ process output {
 workflow pipeline {
     take:
         reads
+        reference
     main:
-        summary = summariseReads(reads)
+        fastq = combineFastq(reads)
+
+        alignment = alignReads(fastq.fastq,reference)
+
         software_versions = getVersions()
         workflow_params = getParams()
-        report = makeReport(summary, software_versions.collect(), workflow_params)
+
+        output_alignments = alignment.alignments.map{ it -> return tuple(it[2], it[3]) }
+
+        report = makeReport(fastq.fastqstats, software_versions.collect(), workflow_params)
+
     emit:
-        results = summary.concat(report)
+        results = fastq.fastqstats.concat(
+            report,
+            output_alignments.collect()
+        )
         // TODO: use something more useful as telemetry
         telemetry = workflow_params
 }
@@ -123,7 +160,16 @@ workflow {
         "sanitize": params.sanitize_fastq,
         "output":params.out_dir])
 
-    pipeline(samples)
+  //get reference
+    if (params.reference == null){
+      params.remove('reference')
+      params._reference = projectDir.resolve("./data/primer_schemes/V1/consensus_irma.fasta").toString()
+    } else {
+      params._reference = file(params.reference, type: "file", checkIfExists:true).toString()
+      params.remove('reference')
+    }
+
+    pipeline(samples,params._reference)
     output(pipeline.out.results)
     end_ping(pipeline.out.telemetry)
 }
