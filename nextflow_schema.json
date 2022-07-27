@@ -117,6 +117,14 @@
             "type": "string",
             "hidden": true
         },
+        "_reference": {
+            "type": "string",
+            "hidden": true
+        },
+        "_blastdb": {
+            "type": "string",
+            "hidden": true
+        },
         "wfversion": {
             "type": "string",
             "default": "v0.0.1",
