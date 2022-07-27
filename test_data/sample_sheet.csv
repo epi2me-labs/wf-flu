@@ -1,3 +1,4 @@
 barcode,sample_id,type
-barcode31,fluA_H3N2_A-wisconsin-15-2009,test_sample
-barcode91,fluB_yamagata_B-florida-4-2006,test_sample
+barcode31,fluB_yamagata_B-florida-4-2006_1,test_sample
+barcode91,fluB_yamagata_B-florida-4-2006_2,test_sample
+barcode55,fluA_H3N2_A-wisconsin-15-2009,test_sample

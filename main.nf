@@ -25,7 +25,7 @@ process combineFastq {
     input:
         tuple path(directory), val(meta)
     output:
-        tuple val(meta.sample_id), val(meta.type), path("${meta.sample_id}.fastq.gz"), emit: fastq
+        tuple val(meta.sample_id), val(meta.type), path("${meta.sample_id}.fastq.gz"), emit: fastqfiles
         path "${meta.sample_id}.stats", emit: fastqstats
     shell:
     """
@@ -36,22 +36,22 @@ process combineFastq {
 
 
 process alignReads {
-    // concatenate fastq and fastq.gz in a dir
+    // align reads to reference
 
     label "wfflu"
     cpus 1
     input:
-        tuple path(directory), val(meta)
+        tuple val(sample_id), val(type), path(sample_fastq)
         path reference
     output:
         tuple val(sample_id), val(type), path("${sample_id}.bam"), path("${sample_id}.bam.bai"), emit: alignments
         tuple path("${sample_id}.bamstats"), path("${sample_id}.bam.summary"), emit: bamstats
     shell:
     """
-    mini_align -i ${sample_fastq} -r ${reference} -p ${meta.sample_id}_tmp -t $task.cpus -m
+    mini_align -i ${sample_fastq} -r ${reference} -p ${sample_id}_tmp -t $task.cpus -m
 
     # keep only mapped reads
-    samtools view --write-index -F 4 ${meta.sample_id}_tmp.bam -o ${meta.sample_id}.bam##idx##${meta.sample_id}.bam.bai
+    samtools view --write-index -F 4 ${sample_id}_tmp.bam -o ${sample_id}.bam##idx##${sample_id}.bam.bai
 
     # get stats from bam
     stats_from_bam -o ${sample_id}.bamstats -s ${sample_id}.bam.summary -t $task.cpus ${sample_id}.bam
@@ -130,7 +130,7 @@ workflow pipeline {
     main:
         fastq = combineFastq(reads)
 
-        alignment = alignReads(fastq.fastq,reference)
+        alignment = alignReads(fastq.fastqfiles,reference)
 
         software_versions = getVersions()
         workflow_params = getParams()
