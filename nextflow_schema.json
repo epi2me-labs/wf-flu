@@ -37,6 +37,11 @@
                     "format": "file-path",
                     "description": "Reference genome"
                 },
+                "blastdb": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "blastdb for typing"
+                },
                 "sanitize_fastq": {
                     "type": "boolean",
                     "description": "Use additional heuristics to identify barcodes from file paths.",

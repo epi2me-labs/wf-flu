@@ -58,6 +58,69 @@ process alignReads {
     """
 }
 
+process coverageCalc {
+    depth_threads = {params.threads >= 4  ? 4 : params.threads}
+    label "wfflu"
+    cpus depth_threads
+    input:
+        tuple val(segment), val(sample_id), val(type), path(bam), path(bai)
+    output:
+        path("${sample_id}_${segment}.depth.txt")
+    """
+    coverage_from_bam -s 1 -r ${segment} -p ${sample_id} ${bam}
+    mv ${sample_id}_${segment}*.depth.txt ${sample_id}_${segment}.depth.txt
+    """
+}
+
+process medakaVariants {
+    label "wfflu"
+    cpus params.threads
+    input:
+        tuple val(segment), val(sample_id), val(type), path(bam), path(bai)
+        path reference
+    output:
+        tuple val(segment), val(sample_id), val(type), path("${sample_id}_${segment}.annotate.filtered.vcf")
+    """
+    samtools view -bh ${bam} ${segment} > ${sample_id}_${segment}.bam
+    medaka consensus ${sample_id}_${segment}.bam ${sample_id}.hdf
+    medaka variant --gvcf ${reference} ${sample_id}.hdf ${sample_id}.vcf --verbose
+    medaka tools annotate --debug --pad 25 ${sample_id}_${segment}.vcf ${reference} ${sample_id}_${segment}.bam ${sample_id}_${segment}.annotate.vcf
+
+    bcftools filter -e "ALT='.'" ${sample_id}_${segment}.annotate.vcf | bcftools filter -o ${sample_id}_${segment}.annotate.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
+    """
+
+}
+
+process makeConsensus {
+    label "wfflu"
+    cpus params.threads
+    input:
+        tuple val(segment), val(sample_id), val(type), path(vcf)
+        path reference
+        path depth
+    output:
+        tuple val(segment), val(sample_id), val(type), path("${sample_id}.draft.consensus.fasta")
+    """
+    reference_name=`basename ${reference} .fasta`
+    awk -v ref=\${reference_name} '{if (\$2<${params.min_coverage}) print ref"\t"\$1+1}' ${depth}  > mask.regions
+    bgzip ${vcf}
+    tabix ${vcf}.gz
+    bcftools consensus --mask mask.regions  --mark-del '-' --mark-ins lc --fasta-ref ${reference} -o ${sample_id}.draft.consensus.fasta ${sample_id}.annotate.filtered.vcf.gz
+    """
+}
+
+process typeFlu {
+    label "wfflu"
+    cpus params.threads
+    input:
+        tuple val(sample_id), val(type), path(consensus)
+        path(blastdb)
+    output:
+        tuple val(sample_id), val(type), path("${sample_id}.draft.consensus.fasta")
+    """
+    abricate --datadir ${blastdb} --db insaflu -minid 70 -mincov 60 --quiet ${consensus} 1> ${sample_id}.typing.txt
+    """
+}
 
 process getVersions {
     label "wfflu"
@@ -127,10 +190,20 @@ workflow pipeline {
     take:
         reads
         reference
+        blastdb
     main:
         fastq = combineFastq(reads)
 
         alignment = alignReads(fastq.fastqfiles,reference)
+
+        segments = Channel.fromPath(reference).splitFasta(record: [id: true, seqString: false ]).map{it->it.id}
+
+        segments_input = segments.combine(alignment.alignments)
+
+        coverage = coverageCalc(segments_input)
+        variants = medakaVariants(segments_input, reference)
+        draft = makeConsensus(variants, reference, coverage)
+        type = typeFlu(draft, blastdb)
 
         software_versions = getVersions()
         workflow_params = getParams()
@@ -169,7 +242,16 @@ workflow {
       params.remove('reference')
     }
 
-    pipeline(samples,params._reference)
+    //get reference
+    if (params.blastdb == null){
+      params.remove('blastdb')
+      params._blastdb = projectDir.resolve("./data/primer_schemes/V1/blastdb").toString()
+    } else {
+      params._blastdb = file(params.reference, type: "file", checkIfExists:true).toString()
+      params.remove('blastdb')
+    }
+
+    pipeline(samples,params._reference,params._blastdb)
     output(pipeline.out.results)
     end_ping(pipeline.out.telemetry)
 }
