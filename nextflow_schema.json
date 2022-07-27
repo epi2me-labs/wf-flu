@@ -42,6 +42,11 @@
                     "format": "file-path",
                     "description": "blastdb for typing"
                 },
+                "min_coverage": {
+                    "type": "number",
+                    "description": "Coverage threshold for masking in consensus step.",
+                    "default": 20
+                },
                 "sanitize_fastq": {
                     "type": "boolean",
                     "description": "Use additional heuristics to identify barcodes from file paths.",

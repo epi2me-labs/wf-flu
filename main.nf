@@ -59,34 +59,73 @@ process alignReads {
 }
 
 process coverageCalc {
-    depth_threads = {params.threads >= 4  ? 4 : params.threads}
-    label "wfflu"
-    cpus depth_threads
-    input:
-        tuple val(segment), val(sample_id), val(type), path(bam), path(bai)
-    output:
-        path("${sample_id}_${segment}.depth.txt")
-    """
-    coverage_from_bam -s 1 -r ${segment} -p ${sample_id} ${bam}
-    mv ${sample_id}_${segment}*.depth.txt ${sample_id}_${segment}.depth.txt
-    """
+  depth_threads = {params.threads >= 4  ? 4 : params.threads}
+      label "wfflu"
+      cpus depth_threads
+      input:
+          tuple val(sample_id), val(type), path(bam), path(bai)
+      output:
+          path("${sample_id}.depth.txt")
+      """
+      samtools depth -aa ${bam} -Q 20 -q 1 > ${sample_id}.depth.txt
+      """
+
 }
+
+// process coverageCalc {
+//     depth_threads = {params.threads >= 4  ? 4 : params.threads}
+//     label "wfflu"
+//     cpus depth_threads
+//     input:
+//         tuple val(sample_id), val(type), path(bam), path(bai)
+//     output:
+//         path("${sample_id}.depth.txt")
+//     """
+//     coverage_from_bam -s 1 -p ${sample_id} ${bam}
+//
+//     for i in `ls ${sample_id}_*.depth.txt`;
+//     do
+//       segment=`basename \${i} .depth.txt | sed 's/${sample_id}_//g'`;
+//       echo -e "segnment\tpos\tdepth\tdepth_fwd\tdepth_rev" > ${sample_id}.depth.txt;
+//       awk -v seg=\${segment} '{print seg"\t"\$0 }' \${i} | grep -v pos  >> ${sample_id}.depth.txt;
+//     done
+//     """
+// }
+//
+// process medakaVariants {
+//     label "wfflu"
+//     cpus params.threads
+//     input:
+//         tuple val(segment), val(sample_id), val(type), path(bam), path(bai)
+//         path reference
+//     output:
+//         tuple val(segment), val(sample_id), val(type), path("${sample_id}_${segment}.annotate.filtered.vcf")
+//     """
+//     samtools view --write-index ${bam} ${segment} -o ${sample_id}_${segment}.bam##idx##${sample_id}_${segment}.bam.bai
+//     medaka consensus ${sample_id}_${segment}.bam ${sample_id}_${segment}.hdf
+//     medaka variant --gvcf ${reference} ${sample_id}_${segment}.hdf ${sample_id}_${segment}.vcf --verbose
+//     medaka tools annotate --debug --pad 25 ${sample_id}_${segment}.vcf ${reference} ${sample_id}_${segment}.bam ${sample_id}_${segment}.annotate.vcf
+//
+//     bcftools filter -e "ALT='.'" ${sample_id}_${segment}.annotate.vcf | bcftools filter -o ${sample_id}_${segment}.annotate.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
+//     """
+//
+// }
 
 process medakaVariants {
     label "wfflu"
     cpus params.threads
     input:
-        tuple val(segment), val(sample_id), val(type), path(bam), path(bai)
+        tuple val(sample_id), val(type), path(bam), path(bai)
         path reference
     output:
-        tuple val(segment), val(sample_id), val(type), path("${sample_id}_${segment}.annotate.filtered.vcf")
+        tuple val(sample_id), val(type), path("${sample_id}.annotate.filtered.vcf")
     """
-    samtools view -bh ${bam} ${segment} > ${sample_id}_${segment}.bam
-    medaka consensus ${sample_id}_${segment}.bam ${sample_id}.hdf
-    medaka variant --gvcf ${reference} ${sample_id}.hdf ${sample_id}.vcf --verbose
-    medaka tools annotate --debug --pad 25 ${sample_id}_${segment}.vcf ${reference} ${sample_id}_${segment}.bam ${sample_id}_${segment}.annotate.vcf
 
-    bcftools filter -e "ALT='.'" ${sample_id}_${segment}.annotate.vcf | bcftools filter -o ${sample_id}_${segment}.annotate.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
+    medaka consensus ${sample_id}.bam ${sample_id}.hdf
+    medaka variant --gvcf ${reference} ${sample_id}.hdf ${sample_id}.vcf --verbose
+    medaka tools annotate --debug --pad 25 ${sample_id}.vcf ${reference} ${sample_id}.bam ${sample_id}.annotate.vcf
+
+    bcftools filter -e "ALT='.'" ${sample_id}.annotate.vcf | bcftools filter -o ${sample_id}.annotate.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
     """
 
 }
@@ -95,17 +134,18 @@ process makeConsensus {
     label "wfflu"
     cpus params.threads
     input:
-        tuple val(segment), val(sample_id), val(type), path(vcf)
+        tuple val(sample_id), val(type), path(vcf)
         path reference
         path depth
     output:
-        tuple val(segment), val(sample_id), val(type), path("${sample_id}.draft.consensus.fasta")
+        tuple val(sample_id), val(type), path("${sample_id}.draft.consensus.fasta")
     """
-    reference_name=`basename ${reference} .fasta`
-    awk -v ref=\${reference_name} '{if (\$2<${params.min_coverage}) print ref"\t"\$1+1}' ${depth}  > mask.regions
+    #awk '{if (\$3<${params.min_coverage}) print \$1"\t"\$2+1}' ${depth} > mask.regions
+    awk '{if (\$3<${params.min_coverage}) print \$1"\t"\$2+1}' ${depth} > mask.regions
     bgzip ${vcf}
     tabix ${vcf}.gz
-    bcftools consensus --mask mask.regions  --mark-del '-' --mark-ins lc --fasta-ref ${reference} -o ${sample_id}.draft.consensus.fasta ${sample_id}.annotate.filtered.vcf.gz
+
+    bcftools consensus --mask mask.regions  --mark-del '-' --mark-ins lc --fasta-ref ${reference} -o ${sample_id}.draft.consensus.fasta ${vcf}.gz
     """
 }
 
@@ -116,7 +156,7 @@ process typeFlu {
         tuple val(sample_id), val(type), path(consensus)
         path(blastdb)
     output:
-        tuple val(sample_id), val(type), path("${sample_id}.draft.consensus.fasta")
+        path("${sample_id}.typing.txt")
     """
     abricate --datadir ${blastdb} --db insaflu -minid 70 -mincov 60 --quiet ${consensus} 1> ${sample_id}.typing.txt
     """
@@ -196,12 +236,13 @@ workflow pipeline {
 
         alignment = alignReads(fastq.fastqfiles,reference)
 
-        segments = Channel.fromPath(reference).splitFasta(record: [id: true, seqString: false ]).map{it->it.id}
+        coverage = coverageCalc(alignment.alignments)
 
-        segments_input = segments.combine(alignment.alignments)
+        // segments = Channel.fromPath(reference).splitFasta(record: [id: true, seqString: false ]).map{it->it.id}
+        //
+        // segments_input = segments.combine(alignment.alignments)
 
-        coverage = coverageCalc(segments_input)
-        variants = medakaVariants(segments_input, reference)
+        variants = medakaVariants(alignment.alignments, reference)
         draft = makeConsensus(variants, reference, coverage)
         type = typeFlu(draft, blastdb)
 
@@ -215,7 +256,9 @@ workflow pipeline {
     emit:
         results = fastq.fastqstats.concat(
             report,
-            output_alignments.collect()
+            output_alignments.collect(),
+            draft.map{it -> it[2]},
+            type.collect()
         )
         // TODO: use something more useful as telemetry
         telemetry = workflow_params
