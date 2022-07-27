@@ -1,9 +1,9 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
-    "title": "epi2me-labs/wf-template",
-    "description": "Nextflow workflow template repository.",
-    "url": "https://github.com/epi2me-labs/wf-template",
+    "title": "epi2me-labs/wf-fklue",
+    "description": "Nextflow workflow to analyse ONT flu sequecning data.",
+    "url": "https://github.com/epi2me-labs/wf-flu",
     "type": "object",
     "definitions": {
         "basic_input_output_options": {
@@ -90,9 +90,9 @@
     "properties": {
         "process_label": {
             "type": "string",
-            "description": "The main process label for template processes to use by default",
+            "description": "The main process label for processes to use by default",
             "hidden": true,
-            "default": "wf-template"
+            "default": "wfflu"
         },
         "aws_image_prefix": {
             "type": "string",
@@ -104,7 +104,7 @@
         },
         "wfversion": {
             "type": "string",
-            "default": "v0.2.0",
+            "default": "v0.0.1",
             "hidden": true
         },
         "monochrome_logs": {

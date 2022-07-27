@@ -20,7 +20,7 @@ include { start_ping; end_ping } from './lib/ping'
 process summariseReads {
     // concatenate fastq and fastq.gz in a dir
 
-    label "wftemplate"
+    label "wfflu"
     cpus 1
     input:
         tuple path(directory), val(meta)
@@ -34,7 +34,7 @@ process summariseReads {
 
 
 process getVersions {
-    label "wftemplate"
+    label "wfflu"
     cpus 1
     output:
         path "versions.txt"
@@ -47,7 +47,7 @@ process getVersions {
 
 
 process getParams {
-    label "wftemplate"
+    label "wfflu"
     cpus 1
     output:
         path "params.json"
@@ -61,7 +61,7 @@ process getParams {
 
 
 process makeReport {
-    label "wftemplate"
+    label "wfflu"
     input:
         path "seqs.txt"
         path "versions/*"
@@ -84,7 +84,7 @@ process makeReport {
 // decoupling the publish from the process steps.
 process output {
     // publish inputs to output directory
-    label "wftemplate"
+    label "wfflu"
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*"
     input:
         path fname
