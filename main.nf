@@ -150,7 +150,7 @@ process makeConsensus {
 }
 
 process typeFlu {
-    label "wfflu"
+    label "wfflu-typing"
     cpus params.threads
     input:
         tuple val(sample_id), val(type), path(consensus)

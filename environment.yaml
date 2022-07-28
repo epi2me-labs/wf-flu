@@ -10,7 +10,6 @@ dependencies:
     - pysam >=0.17.0
     - fastcat
     - epi2melabs
-    - abricate
     - minimap2 ==2.23
     - samtools
     - seqkit ==2.1.0

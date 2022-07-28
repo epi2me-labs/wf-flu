@@ -6,3 +6,11 @@ include:
 variables:
     # We'll use the single-file case for these runs
     NF_WORKFLOW_OPTS: "--fastq test_data/fastq"
+
+# reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
+release-wf-flu-typing:
+    extends: .aux-container
+    variables:
+        AUX_IMAGE_NAME: "wf-flu-typing"
+        AUX_IMAGE_ENVFILE: "environment_typing.yaml"
+        AUX_IMAGE_TAG: "1.0.1"
