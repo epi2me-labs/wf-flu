@@ -1,0 +1,9 @@
+name: epi2melabs-wf-flu-typing
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - abricate ==1.0.1
+  - perl-list-moreutils
+  - drmaa
