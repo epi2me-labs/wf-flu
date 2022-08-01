@@ -71,7 +71,3 @@ def parse_typing_file(typing_file):
         typecode = 'failure'
 
     return typecode
-
-
-print(parse_typing_file(
-    "/Users/Matt.Parker/work/wf-flu/output/barcode31.typing.txt"))

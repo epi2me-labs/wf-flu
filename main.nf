@@ -140,7 +140,6 @@ process makeConsensus {
     output:
         tuple val(sample_id), val(type), path("${sample_id}.draft.consensus.fasta")
     """
-    #awk '{if (\$3<${params.min_coverage}) print \$1"\t"\$2+1}' ${depth} > mask.regions
     awk '{if (\$3<${params.min_coverage}) print \$1"\t"\$2+1}' ${depth} > mask.regions
     bgzip ${vcf}
     tabix ${vcf}.gz
@@ -156,9 +155,9 @@ process typeFlu {
         tuple val(sample_id), val(type), path(consensus)
         path(blastdb)
     output:
-        path("${sample_id}.typing.txt")
+        tuple val(sample_id), val(type), path("${sample_id}.insaflu.typing.txt")
     """
-    abricate --datadir ${blastdb} --db insaflu -minid 70 -mincov 60 --quiet ${consensus} 1> ${sample_id}.typing.txt
+    abricate --datadir ${blastdb} --db insaflu -minid 70 -mincov 60 --quiet ${consensus} 1> ${sample_id}.insaflu.typing.txt
     """
 }
 
@@ -192,17 +191,23 @@ process getParams {
 process makeReport {
     label "wfflu"
     input:
-        path "seqs.txt"
+        val samples
+        val types
         path "versions/*"
+        path "coverage/*"
+        path "typing/*"
         path "params.json"
     output:
         path "wf-template-*.html"
     script:
-        report_name = "wf-template-" + params.report_name + '.html'
+        report_name = "wf-flu-" + params.report_name + '.html'
     """
     report.py $report_name \
         --versions versions \
-        seqs.txt \
+        --coverage coverage \
+        --samples $samples \
+        --types $types \
+        --typing typing \
         --params params.json
     """
 }
@@ -251,14 +256,25 @@ workflow pipeline {
 
         output_alignments = alignment.alignments.map{ it -> return tuple(it[2], it[3]) }
 
-        report = makeReport(fastq.fastqstats, software_versions.collect(), workflow_params)
+        sample_ids = fastq.fastqfiles.map{it -> it[0]}.collect().map{it -> it.join(' ')}
+        sample_types = fastq.fastqfiles.map{it-> it[1]}.collect().map{it -> it.join(' ')}
+
+        report = makeReport(
+            sample_ids,
+            sample_types,
+            software_versions.collect(),
+            coverage.collect(),
+            type.map{it -> it[2] }.collect(),
+            workflow_params
+        )
 
     emit:
         results = fastq.fastqstats.concat(
             report,
             output_alignments.collect(),
+            variants.map{it-> it[2]},
             draft.map{it -> it[2]},
-            type.collect()
+            type.map{it -> return tuple(it[2], it[3])}.collect()
         )
         // TODO: use something more useful as telemetry
         telemetry = workflow_params

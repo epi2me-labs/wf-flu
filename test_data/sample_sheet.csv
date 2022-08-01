@@ -1,6 +1,10 @@
 barcode,sample_id,type
 barcode02,H1N1_strain_A-PR-8-34,test_sample
-barcode09,fluB_B-Taiwan-2-62,test_sample
-barcode31,fluB_yamagata_B-florida-4-2006_1,test_sample
-barcode91,fluB_yamagata_B-florida-4-2006_2,test_sample
+barcode03,H1N1_strain_A-Virginia-ATCC1-2009,test_sample
+barcode04,H3N2_strain_A-Virginia-ATCC6-2012,test_sample
+barcode08,fluB-BY-massachusetts-2-2012,test_sample
+barcode09,fluB_B-taiwan-2-62,test_sample
+barcode10,fluB-lee-40,test_sample
+barcode31,fluB-yamagata-florida-4-2006_1,test_sample
+barcode91,fluB-yamagata-florida-4-2006_2,test_sample
 barcode55,fluA_H3N2_A-wisconsin-15-2009,test_sample
