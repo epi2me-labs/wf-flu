@@ -274,7 +274,7 @@ workflow pipeline {
             output_alignments.collect(),
             variants.map{it-> it[2]},
             draft.map{it -> it[2]},
-            type.map{it -> return tuple(it[2], it[3])}.collect()
+            type.map{it -> it[2]}
         )
         // TODO: use something more useful as telemetry
         telemetry = workflow_params
