@@ -20,8 +20,10 @@ def typing(sample_details):
                             <tr><th>Sample</th><th>Typing</th></tr>
                         </thead>''']
     for sample in sorted(sample_details):
+        print(sample)
         typing_result = parse_typing_file(sample_details[sample]['typing'])
         typing = typing_result.split(" ")
+        print(typing)
         if typing[0] == "Type_A":
             color = 'brand-primary'
         elif typing[0] == "Type_B":
@@ -32,6 +34,7 @@ def typing(sample_details):
             color = 'brand-red'
 
         extra = ''
+        safe = ''
         if len(typing) > 1:
             safe = typing.copy()
 
@@ -164,7 +167,7 @@ def main():
             args.samples, args.types
         )
     }
-
+    print(sample_details)
     report = WFReport(
         "wf-flu Influenza Sequencing Report", "wf-flu",
         revision=args.revision, commit=args.commit)

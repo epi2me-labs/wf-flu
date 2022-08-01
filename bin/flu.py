@@ -10,7 +10,7 @@ def parse_typing_file(typing_file):
     From original ONT Applications code 2021.
     """
     try:
-
+        print(f"opening {typing_file}")
         with open(typing_file) as file:
             lines = file.readlines()
 

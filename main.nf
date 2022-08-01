@@ -65,51 +65,12 @@ process coverageCalc {
       input:
           tuple val(sample_id), val(type), path(bam), path(bai)
       output:
-          path("${sample_id}.depth.txt")
+          tuple val(sample_id), val(type), path("${sample_id}.depth.txt")
       """
       samtools depth -aa ${bam} -Q 20 -q 1 > ${sample_id}.depth.txt
       """
 
 }
-
-// process coverageCalc {
-//     depth_threads = {params.threads >= 4  ? 4 : params.threads}
-//     label "wfflu"
-//     cpus depth_threads
-//     input:
-//         tuple val(sample_id), val(type), path(bam), path(bai)
-//     output:
-//         path("${sample_id}.depth.txt")
-//     """
-//     coverage_from_bam -s 1 -p ${sample_id} ${bam}
-//
-//     for i in `ls ${sample_id}_*.depth.txt`;
-//     do
-//       segment=`basename \${i} .depth.txt | sed 's/${sample_id}_//g'`;
-//       echo -e "segnment\tpos\tdepth\tdepth_fwd\tdepth_rev" > ${sample_id}.depth.txt;
-//       awk -v seg=\${segment} '{print seg"\t"\$0 }' \${i} | grep -v pos  >> ${sample_id}.depth.txt;
-//     done
-//     """
-// }
-//
-// process medakaVariants {
-//     label "wfflu"
-//     cpus params.threads
-//     input:
-//         tuple val(segment), val(sample_id), val(type), path(bam), path(bai)
-//         path reference
-//     output:
-//         tuple val(segment), val(sample_id), val(type), path("${sample_id}_${segment}.annotate.filtered.vcf")
-//     """
-//     samtools view --write-index ${bam} ${segment} -o ${sample_id}_${segment}.bam##idx##${sample_id}_${segment}.bam.bai
-//     medaka consensus ${sample_id}_${segment}.bam ${sample_id}_${segment}.hdf
-//     medaka variant --gvcf ${reference} ${sample_id}_${segment}.hdf ${sample_id}_${segment}.vcf --verbose
-//     medaka tools annotate --debug --pad 25 ${sample_id}_${segment}.vcf ${reference} ${sample_id}_${segment}.bam ${sample_id}_${segment}.annotate.vcf
-//
-//     bcftools filter -e "ALT='.'" ${sample_id}_${segment}.annotate.vcf | bcftools filter -o ${sample_id}_${segment}.annotate.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
-//     """
-//
-// }
 
 process medakaVariants {
     label "wfflu"
@@ -134,9 +95,8 @@ process makeConsensus {
     label "wfflu"
     cpus params.threads
     input:
-        tuple val(sample_id), val(type), path(vcf)
+        tuple val(sample_id), val(type), path(vcf), path(depth)
         path reference
-        path depth
     output:
         tuple val(sample_id), val(type), path("${sample_id}.draft.consensus.fasta")
     """
@@ -238,17 +198,13 @@ workflow pipeline {
         blastdb
     main:
         fastq = combineFastq(reads)
-
         alignment = alignReads(fastq.fastqfiles,reference)
-
         coverage = coverageCalc(alignment.alignments)
-
-        // segments = Channel.fromPath(reference).splitFasta(record: [id: true, seqString: false ]).map{it->it.id}
-        //
-        // segments_input = segments.combine(alignment.alignments)
-
         variants = medakaVariants(alignment.alignments, reference)
-        draft = makeConsensus(variants, reference, coverage)
+
+        for_draft = variants.join(coverage.map{it -> return tuple(it[0], it[2])})
+
+        draft = makeConsensus(for_draft, reference)
         type = typeFlu(draft, blastdb)
 
         software_versions = getVersions()
@@ -263,7 +219,7 @@ workflow pipeline {
             sample_ids,
             sample_types,
             software_versions.collect(),
-            coverage.collect(),
+            coverage.map{it -> it[2] }.collect(),
             type.map{it -> it[2] }.collect(),
             workflow_params
         )
