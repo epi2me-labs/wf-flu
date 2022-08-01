@@ -198,7 +198,7 @@ process makeReport {
         path "typing/*"
         path "params.json"
     output:
-        path "wf-template-*.html"
+        path "wf-flu-*.html"
     script:
         report_name = "wf-flu-" + params.report_name + '.html'
     """
