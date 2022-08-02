@@ -76,7 +76,7 @@ process downSample {
     label 'wfflu'
     cpus params.threads
     input:
-        tuple val(sample_id), val(type), path("${sample_id}.bam"), path("${sample_id}.bam.bai")
+        tuple val(sample_id), val(type), path(bam), path(bai)
         path reference
     output:
         tuple val(sample_id), val(type), path("${sample_id}_all_merged.sorted.bam"), path("${sample_id}_all_merged.sorted.bam.bai"), emit: alignments
@@ -84,11 +84,41 @@ process downSample {
     # split bam
     header_count=`samtools view -H ${sample_id}.bam | wc -l`
     lines=\$(( ${params.downsample} + \$header_count + 1 ))
-    regions=`grep '>' ${reference} | tr -d '>'`
-    for region in regions;
+
+    # get the regions from the fasta
+    awk '/^>/ {if (seqlen){print seqlen}; print ;seqlen=0;next; } { seqlen += length(\$0)}END{print seqlen}' ${reference} | tr "\\n" "," | tr '>' '\\n' | sed 's/,\$//g' | grep ',' > regions.txt
+
+    # for every region we're going to downsample separatley
+
+    while read region_string;
     do
 
-      samtools view -bh ${sample_id}.bam \${region} > ${sample_id}_\${region}.bam;
+      region=`echo \${region_string} | cut -f1 -d','`
+      length=`echo \${region_string} | cut -f2 -d','`
+
+      # get upper and lower bounds of reference span
+
+      upper=`echo \$((\${length}+(\${length}*10/100)))`
+      lower=`echo \$((\${length}-(\${length}*10/100)))`
+
+      samtools view -H ${bam} \${region} > head.sam
+
+      # filter reads in region and covering region
+
+      samtools view ${bam} \${region} | awk -v upper="\${upper}" -v lower="\${lower}" '{if(length(\$10) < upper && length(\$10) > lower) print \$0}' > ${sample_id}_\${region}.tmp.sam;
+
+      # ignore regions with no reads
+      count=`wc -l < ${sample_id}_\${region}.tmp.sam`
+
+      if [ "\${count}" -eq "0" ];
+      then
+        echo "no reads in \${region} so continuing"
+        cat head.sam | samtools view -bh > ${sample_id}_\${region}_all.bam
+        continue;
+      fi
+
+      cat head.sam ${sample_id}_\${region}.tmp.sam | samtools view -bh > ${sample_id}_\${region}.bam
+
       samtools view -h -F16 ${sample_id}_\${region}.bam > ${sample_id}_\${region}_fwd.sam;
       head -\${lines} ${sample_id}_\${region}_fwd.sam | samtools view -bh - > ${sample_id}_\${region}_fwd.bam;
 
@@ -96,7 +126,7 @@ process downSample {
       head -\${lines} ${sample_id}_\${region}_rev.sam | samtools view -bh - > ${sample_id}_\${region}_rev.bam;
       samtools merge ${sample_id}_\${region}_all.bam ${sample_id}_\${region}_fwd.bam ${sample_id}_\${region}_rev.bam;
 
-    done
+    done < regions.txt
 
     samtools merge ${sample_id}_all_merged.bam *_all.bam
     samtools sort ${sample_id}_all_merged.bam > ${sample_id}_all_merged.sorted.bam
