@@ -58,7 +58,7 @@ def qc(sample_details):
     )
     mean_length.xaxis.major_label_orientation = math.pi/4
 
-    return([read_count, mean_length])
+    return ([read_count, mean_length])
 
 
 def typing(sample_details):
