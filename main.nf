@@ -25,7 +25,7 @@ process combineFastq {
     input:
         tuple path(directory), val(meta)
     output:
-        tuple val(meta.sample_id), val(meta.type), path("${meta.sample_id}.fastq.gz"), emit: fastqfiles
+        tuple val(meta.sample_id), val(meta.type), val(meta.barcode), path("${meta.sample_id}.fastq.gz"), emit: fastqfiles
         path "${meta.sample_id}.stats", emit: fastqstats
     shell:
     """
@@ -41,7 +41,7 @@ process alignReads {
     label "wfflu"
     cpus 1
     input:
-        tuple val(sample_id), val(type), path(sample_fastq)
+        tuple val(sample_id), val(type), val(barcode), path(sample_fastq)
         path reference
     output:
         tuple val(sample_id), val(type), path("${sample_id}.bam"), path("${sample_id}.bam.bai"), emit: alignments
@@ -72,6 +72,70 @@ process coverageCalc {
 
 }
 
+process downSample {
+    label 'wfflu'
+    cpus params.threads
+    input:
+        tuple val(sample_id), val(type), path(bam), path(bai)
+        path reference
+    output:
+        tuple val(sample_id), val(type), path("${sample_id}_all_merged.sorted.bam"), path("${sample_id}_all_merged.sorted.bam.bai"), emit: alignments
+    """
+    # split bam
+    header_count=`samtools view -H ${sample_id}.bam | wc -l`
+    lines=\$(( ${params.downsample} + \$header_count + 1 ))
+
+    # get the regions from the fasta
+    awk '/^>/ {if (seqlen){print seqlen}; print ;seqlen=0;next; } { seqlen += length(\$0)}END{print seqlen}' ${reference} | tr "\\n" "," | tr '>' '\\n' | sed 's/,\$//g' | grep ',' > regions.txt
+
+    # for every region we're going to downsample separatley
+
+    while read region_string;
+    do
+
+      region=`echo \${region_string} | cut -f1 -d','`
+      length=`echo \${region_string} | cut -f2 -d','`
+
+      # get upper and lower bounds of reference span
+
+      upper=`echo \$((\${length}+(\${length}*10/100)))`
+      lower=`echo \$((\${length}-(\${length}*10/100)))`
+
+      samtools view -H ${bam} \${region} > head.sam
+
+      # filter reads in region and covering region
+
+      samtools view ${bam} \${region} | awk -v upper="\${upper}" -v lower="\${lower}" '{if(length(\$10) < upper && length(\$10) > lower) print \$0}' > ${sample_id}_\${region}.tmp.sam;
+
+      # ignore regions with no reads
+      count=`wc -l < ${sample_id}_\${region}.tmp.sam`
+
+      if [ "\${count}" -eq "0" ];
+      then
+        echo "no reads in \${region} so continuing"
+        cat head.sam | samtools view -bh > ${sample_id}_\${region}_all.bam
+        continue;
+      fi
+
+      cat head.sam ${sample_id}_\${region}.tmp.sam | samtools view -bh > ${sample_id}_\${region}.bam
+
+      samtools view -h -F16 ${sample_id}_\${region}.bam > ${sample_id}_\${region}_fwd.sam;
+      head -\${lines} ${sample_id}_\${region}_fwd.sam | samtools view -bh - > ${sample_id}_\${region}_fwd.bam;
+
+      samtools view -h -f16 ${sample_id}_\${region}.bam > ${sample_id}_\${region}_rev.sam;
+      head -\${lines} ${sample_id}_\${region}_rev.sam | samtools view -bh - > ${sample_id}_\${region}_rev.bam;
+      samtools merge ${sample_id}_\${region}_all.bam ${sample_id}_\${region}_fwd.bam ${sample_id}_\${region}_rev.bam;
+
+    done < regions.txt
+
+    samtools merge ${sample_id}_all_merged.bam *_all.bam
+    samtools sort ${sample_id}_all_merged.bam > ${sample_id}_all_merged.sorted.bam
+    samtools index ${sample_id}_all_merged.sorted.bam
+    echo "done"
+
+    """
+}
+
 process medakaVariants {
     label "wfflu"
     cpus params.threads
@@ -82,9 +146,9 @@ process medakaVariants {
         tuple val(sample_id), val(type), path("${sample_id}.annotate.filtered.vcf")
     """
 
-    medaka consensus ${sample_id}.bam ${sample_id}.hdf
+    medaka consensus ${bam} ${sample_id}.hdf
     medaka variant --gvcf ${reference} ${sample_id}.hdf ${sample_id}.vcf --verbose
-    medaka tools annotate --debug --pad 25 ${sample_id}.vcf ${reference} ${sample_id}.bam ${sample_id}.annotate.vcf
+    medaka tools annotate --debug --pad 25 ${sample_id}.vcf ${reference} ${bam} ${sample_id}.annotate.vcf
 
     bcftools filter -e "ALT='.'" ${sample_id}.annotate.vcf | bcftools filter -o ${sample_id}.annotate.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
     """
@@ -115,8 +179,10 @@ process typeFlu {
         tuple val(sample_id), val(type), path(consensus)
         path(blastdb)
     output:
-        tuple val(sample_id), val(type), path("${sample_id}.insaflu.typing.txt")
+        tuple val(sample_id), val(type), path("${sample_id}.insaflu.typing.txt"), emit: typing
+        path "abricate.version", emit: version
     """
+    abricate --version | sed 's/ /,/' > abricate.version
     abricate --datadir ${blastdb} --db insaflu -minid 70 -mincov 60 --quiet ${consensus} 1> ${sample_id}.insaflu.typing.txt
     """
 }
@@ -130,6 +196,9 @@ process getVersions {
     """
     python -c "import pysam; print(f'pysam,{pysam.__version__}')" >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
+    medaka --version | sed 's/ /,/' >> versions.txt
+    bcftools --version | head -1 | sed 's/ /,/' >> versions.txt
+    samtools --version | grep samtools | head -1 | sed 's/ /,/' >> versions.txt
     """
 }
 
@@ -153,12 +222,14 @@ process makeReport {
     input:
         val samples
         val types
+        val barcodes
         path "versions/*"
         path "coverage/*"
         path "typing/*"
+        path "fastqstats/*"
         path "params.json"
     output:
-        path "wf-flu-*.html"
+        tuple path("wf-flu-*.html"), path("wf-flu-results.csv")
     script:
         report_name = "wf-flu-" + params.report_name + '.html'
     """
@@ -167,7 +238,9 @@ process makeReport {
         --coverage coverage \
         --samples $samples \
         --types $types \
+        --barcodes $barcodes \
         --typing typing \
+        --fastqstats fastqstats \
         --params params.json
     """
 }
@@ -200,7 +273,17 @@ workflow pipeline {
         fastq = combineFastq(reads)
         alignment = alignReads(fastq.fastqfiles,reference)
         coverage = coverageCalc(alignment.alignments)
-        variants = medakaVariants(alignment.alignments, reference)
+
+        // do crude downsampling
+        if (params.downsample != null){
+          println("Downsampling!!!")
+          downsample = downSample(alignment.alignments, reference)
+        } else {
+          println("NOT Downsampling!!!")
+          downsample = alignment
+        }
+
+        variants = medakaVariants(downsample.alignments, reference)
 
         for_draft = variants.join(coverage.map{it -> return tuple(it[0], it[2])})
 
@@ -208,29 +291,33 @@ workflow pipeline {
         type = typeFlu(draft, blastdb)
 
         software_versions = getVersions()
+        software_versions = software_versions.mix(type.version.first())
         workflow_params = getParams()
 
         output_alignments = alignment.alignments.map{ it -> return tuple(it[2], it[3]) }
 
         sample_ids = fastq.fastqfiles.map{it -> it[0]}.collect().map{it -> it.join(' ')}
         sample_types = fastq.fastqfiles.map{it-> it[1]}.collect().map{it -> it.join(' ')}
+        sample_barcodes = fastq.fastqfiles.map{it-> it[2]}.collect().map{it -> it.join(' ')}
 
         report = makeReport(
             sample_ids,
             sample_types,
+            sample_barcodes,
             software_versions.collect(),
             coverage.map{it -> it[2] }.collect(),
-            type.map{it -> it[2] }.collect(),
+            type.typing.map{it -> it[2] }.collect(),
+            fastq.fastqstats.collect(),
             workflow_params
         )
 
     emit:
         results = fastq.fastqstats.concat(
-            report,
+            report.collect(),
             output_alignments.collect(),
             variants.map{it-> it[2]},
             draft.map{it -> it[2]},
-            type.map{it -> it[2]}
+            type.typing.map{it -> it[2]}
         )
         // TODO: use something more useful as telemetry
         telemetry = workflow_params

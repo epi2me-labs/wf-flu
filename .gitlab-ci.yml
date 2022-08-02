@@ -5,7 +5,7 @@ include:
 
 variables:
     # We'll use the single-file case for these runs
-    NF_WORKFLOW_OPTS: "--fastq test_data/fastq"
+    NF_WORKFLOW_OPTS: "--fastq test_data/fastq --downsample 50"
 
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
 release-wf-flu-typing:

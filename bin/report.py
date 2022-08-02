@@ -4,8 +4,10 @@
 import argparse
 import math
 
+from aplanat import bars
 from aplanat.components import simple as scomponents
 from aplanat.report import WFReport
+from aplanat.util import ont_colors
 from bokeh.models import (
     BasicTicker,  ColorBar, ColumnDataSource, LinearColorMapper)
 from bokeh.plotting import figure
@@ -13,17 +15,76 @@ from flu import parse_typing_file
 import pandas as pd
 
 
+def qc(sample_details):
+    """Make a QC megaplot."""
+    df = pd.DataFrame(
+        columns=[
+            'sample',
+            'barcode',
+            'read_count',
+            'mean_quality',
+            'mean_length'])
+
+    for sample in sorted(sample_details):
+        reads = pd.read_csv(
+            sample_details[sample]['fastqstats'], sep='\t', header=0)
+
+        df = df.append(
+            {
+                'sample': sample,
+                'barcode': sample_details[sample]['barcode'],
+                'read_count': len(reads.index),
+                'mean_quality': reads["mean_quality"].mean(),
+                'mean_length': reads["read_length"].mean()},
+            ignore_index=True)
+
+    read_count = bars.simple_bar(
+        df['sample'].astype(str),
+        df['read_count'],
+        colors=[colors.BRAND_BLUE]*len(df.index),
+        title=(
+            'Number of reads per sample'),
+        plot_width=1100
+    )
+    read_count.xaxis.major_label_orientation = math.pi/4
+
+    mean_length = bars.simple_bar(
+        df['sample'].astype(str),
+        df['mean_length'],
+        colors=[colors.BRAND_LIGHT_BLUE]*len(df.index),
+        title=(
+            'Mean read length for each sample'),
+        plot_width=1100
+    )
+    mean_length.xaxis.major_label_orientation = math.pi/4
+
+    return ([read_count, mean_length])
+
+
 def typing(sample_details):
-    """Get typing results and add to a table."""
+    """Get typing results and add to a table and csv for export."""
+    header = ['sample', 'barcode', 'type', 'subtype']
     typing_table = ['''<table class="table table-sm">
                         <thead>
-                            <tr><th>Sample</th><th>Typing</th></tr>
+                            <tr>
+                                <th>Sample</th>
+                                <th>Barcode</th>
+                                <th>Typing</th>
+                            </tr>
                         </thead>''']
+
+    out = [','.join(header)]
+
     for sample in sorted(sample_details):
-        print(sample)
+
         typing_result = parse_typing_file(sample_details[sample]['typing'])
         typing = typing_result.split(" ")
-        print(typing)
+
+        line = []
+        line.append(sample)
+        line.append(sample_details[sample]['barcode'])
+        line.append(typing[0])
+
         if typing[0] == "Type_A":
             color = 'brand-primary'
         elif typing[0] == "Type_B":
@@ -37,24 +98,31 @@ def typing(sample_details):
         safe = ''
         if len(typing) > 1:
             safe = typing.copy()
-
+            line.append(''.join(safe[1:]))
             extra = f"""
                 <span class="badge badge-{color}">{''.join(safe[1:])}</span>"""
 
         typing_table.append(f"""
             <tr>
                 <td>{sample}</td>
+                <td>{sample_details[sample]['barcode']}</td>
                 <td>
-                    <h5>
+                    <h6>
                         <span class="badge badge-{color}">{typing[0]}</span>
                         {extra}
-                    </h5>
+                    </h6>
                 </td>
             </tr>
         """)
 
+        out.append(','.join(line))
+
     typing_table.append("</table>")
 
+    csv = '\n'.join(out)
+    f = open("wf-flu-results.csv", "w")
+    f.write(csv)
+    f.close()
     return "\n".join(typing_table)
 
 
@@ -117,7 +185,7 @@ def coverage(sample_details):
 
     p.add_layout(color_bar, 'right')
 
-    p.xaxis.major_label_orientation = math.pi/2
+    p.xaxis.major_label_orientation = math.pi/4
     p.xaxis.axis_label = 'Segment'
     p.yaxis.axis_label = 'Sample'
     p.toolbar.active_drag = None
@@ -150,27 +218,56 @@ def main():
         "--typing", default='typing_files',
         help="abricate typing files")
     parser.add_argument(
+        "--fastqstats", default='fastqstats',
+        help="fastqstats files from fastcat")
+    parser.add_argument(
         "--samples", nargs='+', default='unknown',
-        help="git commit number")
+        help="space separated list of samples")
     parser.add_argument(
         "--types", nargs='+', default='unknown',
-        help="git commit number")
+        help="space separated list of sample types")
+    parser.add_argument(
+        "--barcodes", nargs='+', default='unknown',
+        help="space separated list of sample barcodes")
 
     args = parser.parse_args()
+
+    global colors
+    colors = ont_colors
 
     sample_details = {
         sample: {
             'type': type,
+            'barcode': barcode,
             'coverage': f"{args.coverage}/{sample}.depth.txt",
-            'typing': f"{args.typing}/{sample}.insaflu.typing.txt"
-        } for sample, type in zip(
-            args.samples, args.types
+            'typing': f"{args.typing}/{sample}.insaflu.typing.txt",
+            'fastqstats': f"{args.fastqstats}/{sample}.stats"
+        } for sample, type, barcode in zip(
+            args.samples, args.types, args.barcodes
         )
     }
     print(sample_details)
     report = WFReport(
         "wf-flu Influenza Sequencing Report", "wf-flu",
         revision=args.revision, commit=args.commit)
+
+    section = report.add_section()
+    section._add_item("""<h3>Sample Typing</h3>
+
+    <p>The table below details the typing for each sample using the insaflu
+    blast db assigned using abricate.</p>""")
+
+    section._add_item(typing(sample_details))
+
+    section = report.add_section()
+    section._add_item("""<h3>Quality Control</h3>
+
+    <p>This section contains plots and tables that might be useful in
+    determining the success of a run or samples on that run.</p>""")
+
+    for plot in qc(sample_details):
+
+        section.plot(plot)
 
     section = report.add_section()
     section._add_item("""<h3>Segment Coverage</h3>
@@ -181,14 +278,6 @@ def main():
     section.plot(coverage(sample_details))
 
     section._add_item("""<br><br>""")
-
-    section = report.add_section()
-    section._add_item("""<h3>Sample Typing</h3>
-
-    <p>The table below details the typing for each sample using the insaflu
-    blast db assigned using abricate.</p>""")
-
-    section._add_item(typing(sample_details))
 
     report.add_section(
         section=scomponents.version_table(args.versions))
