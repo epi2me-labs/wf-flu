@@ -58,16 +58,6 @@ def qc(sample_details):
     )
     mean_length.xaxis.major_label_orientation = math.pi/4
 
-    # mean_quality = bars.simple_bar(
-    #     df['sample'].astype(str),
-    #     df['mean_quality'],
-    #     colors=[colors.BRAND_BLUE]*len(df.index),
-    #     title=(
-    #         'Mean read quality for each sample'),
-    #     plot_width=1100
-    # )
-    # mean_quality.xaxis.major_label_orientation = math.pi/4
-
     return([read_count, mean_length])
 
 

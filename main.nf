@@ -280,7 +280,7 @@ workflow pipeline {
           downsample = downSample(alignment.alignments, reference)
         } else {
           println("NOT Downsampling!!!")
-          downsample = alignments
+          downsample = alignment
         }
 
         variants = medakaVariants(downsample.alignments, reference)
