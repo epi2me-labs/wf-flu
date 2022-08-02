@@ -25,7 +25,7 @@ process combineFastq {
     input:
         tuple path(directory), val(meta)
     output:
-        tuple val(meta.sample_id), val(meta.type), path("${meta.sample_id}.fastq.gz"), emit: fastqfiles
+        tuple val(meta.sample_id), val(meta.type), val(meta.barcode), path("${meta.sample_id}.fastq.gz"), emit: fastqfiles
         path "${meta.sample_id}.stats", emit: fastqstats
     shell:
     """
@@ -41,7 +41,7 @@ process alignReads {
     label "wfflu"
     cpus 1
     input:
-        tuple val(sample_id), val(type), path(sample_fastq)
+        tuple val(sample_id), val(type), val(barcode), path(sample_fastq)
         path reference
     output:
         tuple val(sample_id), val(type), path("${sample_id}.bam"), path("${sample_id}.bam.bai"), emit: alignments
@@ -153,12 +153,14 @@ process makeReport {
     input:
         val samples
         val types
+        val barcodes
         path "versions/*"
         path "coverage/*"
         path "typing/*"
+        path "fastqstats/*"
         path "params.json"
     output:
-        path "wf-flu-*.html"
+        tuple path("wf-flu-*.html"), path("wf-flu-results.csv")
     script:
         report_name = "wf-flu-" + params.report_name + '.html'
     """
@@ -167,7 +169,9 @@ process makeReport {
         --coverage coverage \
         --samples $samples \
         --types $types \
+        --barcodes $barcodes \
         --typing typing \
+        --fastqstats fastqstats \
         --params params.json
     """
 }
@@ -214,19 +218,22 @@ workflow pipeline {
 
         sample_ids = fastq.fastqfiles.map{it -> it[0]}.collect().map{it -> it.join(' ')}
         sample_types = fastq.fastqfiles.map{it-> it[1]}.collect().map{it -> it.join(' ')}
+        sample_barcodes = fastq.fastqfiles.map{it-> it[2]}.collect().map{it -> it.join(' ')}
 
         report = makeReport(
             sample_ids,
             sample_types,
+            sample_barcodes,
             software_versions.collect(),
             coverage.map{it -> it[2] }.collect(),
             type.map{it -> it[2] }.collect(),
+            fastq.fastqstats.collect(),
             workflow_params
         )
 
     emit:
         results = fastq.fastqstats.concat(
-            report,
+            report.collect(),
             output_alignments.collect(),
             variants.map{it-> it[2]},
             draft.map{it -> it[2]},
