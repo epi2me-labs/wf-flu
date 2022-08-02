@@ -51,6 +51,10 @@
                     "description": "Coverage threshold for masking in consensus step.",
                     "default": 20
                 },
+                "downsample": {
+                    "type": "integer",
+                    "description": "Number of reads to downsample to in each direction, leave null for no downsampling."
+                },
                 "sanitize_fastq": {
                     "type": "boolean",
                     "description": "Use additional heuristics to identify barcodes from file paths.",

@@ -51,7 +51,7 @@ def qc(sample_details):
     mean_length = bars.simple_bar(
         df['sample'].astype(str),
         df['mean_length'],
-        colors=[colors.BRAND_BLUE]*len(df.index),
+        colors=[colors.BRAND_LIGHT_BLUE]*len(df.index),
         title=(
             'Mean read length for each sample'),
         plot_width=1100
@@ -117,10 +117,10 @@ def typing(sample_details):
                 <td>{sample}</td>
                 <td>{sample_details[sample]['barcode']}</td>
                 <td>
-                    <h5>
+                    <h6>
                         <span class="badge badge-{color}">{typing[0]}</span>
                         {extra}
-                    </h5>
+                    </h6>
                 </td>
             </tr>
         """)
@@ -262,6 +262,14 @@ def main():
         revision=args.revision, commit=args.commit)
 
     section = report.add_section()
+    section._add_item("""<h3>Sample Typing</h3>
+
+    <p>The table below details the typing for each sample using the insaflu
+    blast db assigned using abricate.</p>""")
+
+    section._add_item(typing(sample_details))
+
+    section = report.add_section()
     section._add_item("""<h3>Quality Control</h3>
 
     <p>This section contains plots and tables that might be useful in
@@ -280,14 +288,6 @@ def main():
     section.plot(coverage(sample_details))
 
     section._add_item("""<br><br>""")
-
-    section = report.add_section()
-    section._add_item("""<h3>Sample Typing</h3>
-
-    <p>The table below details the typing for each sample using the insaflu
-    blast db assigned using abricate.</p>""")
-
-    section._add_item(typing(sample_details))
 
     report.add_section(
         section=scomponents.version_table(args.versions))

@@ -72,6 +72,40 @@ process coverageCalc {
 
 }
 
+process downSample {
+    label 'wfflu'
+    cpus params.threads
+    input:
+        tuple val(sample_id), val(type), path("${sample_id}.bam"), path("${sample_id}.bam.bai")
+        path reference
+    output:
+        tuple val(sample_id), val(type), path("${sample_id}_all_merged.sorted.bam"), path("${sample_id}_all_merged.sorted.bam.bai"), emit: alignments
+    """
+    # split bam
+    header_count=`samtools view -H ${sample_id}.bam | wc -l`
+    lines=\$(( ${params.downsample} + \$header_count + 1 ))
+    regions=`grep '>' ${reference} | tr -d '>'`
+    for region in regions;
+    do
+
+      samtools view -bh ${sample_id}.bam \${region} > ${sample_id}_\${region}.bam;
+      samtools view -h -F16 ${sample_id}_\${region}.bam > ${sample_id}_\${region}_fwd.sam;
+      head -\${lines} ${sample_id}_\${region}_fwd.sam | samtools view -bh - > ${sample_id}_\${region}_fwd.bam;
+
+      samtools view -h -f16 ${sample_id}_\${region}.bam > ${sample_id}_\${region}_rev.sam;
+      head -\${lines} ${sample_id}_\${region}_rev.sam | samtools view -bh - > ${sample_id}_\${region}_rev.bam;
+      samtools merge ${sample_id}_\${region}_all.bam ${sample_id}_\${region}_fwd.bam ${sample_id}_\${region}_rev.bam;
+
+    done
+
+    samtools merge ${sample_id}_all_merged.bam *_all.bam
+    samtools sort ${sample_id}_all_merged.bam > ${sample_id}_all_merged.sorted.bam
+    samtools index ${sample_id}_all_merged.sorted.bam
+    echo "done"
+
+    """
+}
+
 process medakaVariants {
     label "wfflu"
     cpus params.threads
@@ -82,9 +116,9 @@ process medakaVariants {
         tuple val(sample_id), val(type), path("${sample_id}.annotate.filtered.vcf")
     """
 
-    medaka consensus ${sample_id}.bam ${sample_id}.hdf
+    medaka consensus ${bam} ${sample_id}.hdf
     medaka variant --gvcf ${reference} ${sample_id}.hdf ${sample_id}.vcf --verbose
-    medaka tools annotate --debug --pad 25 ${sample_id}.vcf ${reference} ${sample_id}.bam ${sample_id}.annotate.vcf
+    medaka tools annotate --debug --pad 25 ${sample_id}.vcf ${reference} ${bam} ${sample_id}.annotate.vcf
 
     bcftools filter -e "ALT='.'" ${sample_id}.annotate.vcf | bcftools filter -o ${sample_id}.annotate.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
     """
@@ -115,8 +149,10 @@ process typeFlu {
         tuple val(sample_id), val(type), path(consensus)
         path(blastdb)
     output:
-        tuple val(sample_id), val(type), path("${sample_id}.insaflu.typing.txt")
+        tuple val(sample_id), val(type), path("${sample_id}.insaflu.typing.txt"), emit: typing
+        path "abricate.version", emit: version
     """
+    abricate --version | sed 's/ /,/' > abricate.version
     abricate --datadir ${blastdb} --db insaflu -minid 70 -mincov 60 --quiet ${consensus} 1> ${sample_id}.insaflu.typing.txt
     """
 }
@@ -130,6 +166,9 @@ process getVersions {
     """
     python -c "import pysam; print(f'pysam,{pysam.__version__}')" >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
+    medaka --version | sed 's/ /,/' >> versions.txt
+    bcftools --version | head -1 | sed 's/ /,/' >> versions.txt
+    samtools --version | grep samtools | head -1 | sed 's/ /,/' >> versions.txt
     """
 }
 
@@ -204,7 +243,17 @@ workflow pipeline {
         fastq = combineFastq(reads)
         alignment = alignReads(fastq.fastqfiles,reference)
         coverage = coverageCalc(alignment.alignments)
-        variants = medakaVariants(alignment.alignments, reference)
+
+        // do crude downsampling
+        if (params.downsample != null){
+          println("Downsampling!!!")
+          downsample = downSample(alignment.alignments, reference)
+        } else {
+          println("NOT Downsampling!!!")
+          downsample = alignments
+        }
+
+        variants = medakaVariants(downsample.alignments, reference)
 
         for_draft = variants.join(coverage.map{it -> return tuple(it[0], it[2])})
 
@@ -212,6 +261,7 @@ workflow pipeline {
         type = typeFlu(draft, blastdb)
 
         software_versions = getVersions()
+        software_versions = software_versions.mix(type.version.first())
         workflow_params = getParams()
 
         output_alignments = alignment.alignments.map{ it -> return tuple(it[2], it[3]) }
@@ -226,7 +276,7 @@ workflow pipeline {
             sample_barcodes,
             software_versions.collect(),
             coverage.map{it -> it[2] }.collect(),
-            type.map{it -> it[2] }.collect(),
+            type.typing.map{it -> it[2] }.collect(),
             fastq.fastqstats.collect(),
             workflow_params
         )
@@ -237,7 +287,7 @@ workflow pipeline {
             output_alignments.collect(),
             variants.map{it-> it[2]},
             draft.map{it -> it[2]},
-            type.map{it -> it[2]}
+            type.typing.map{it -> it[2]}
         )
         // TODO: use something more useful as telemetry
         telemetry = workflow_params
