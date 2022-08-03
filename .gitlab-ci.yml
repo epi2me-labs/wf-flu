@@ -9,7 +9,7 @@ variables:
 
 aws-run:
   tags:
-    - oxford
+    - london
 
 # reminder: update AUX_IMAGE_TAG if the aux container package versions are changed
 release-wf-flu-typing:
