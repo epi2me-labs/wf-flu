@@ -18,14 +18,22 @@ For more information on running EPI2ME Labs workflows [visit out website](https:
 To obtain the workflow, having installed `nextflow`, users can run:
 
 ```
-nextflow run epi2me-labs/wf-flu--help
+nextflow run epi2me-labs/wf-flu --help
 ```
 
 to see the options for the workflow.
 
 **Workflow outputs**
 
-The primary outputs of the workflow include:
+The workflow outputs several files that are useful for interpretation and analysis:
 
-* a simple text file providing a summary of sequencing reads,
-* an HTML report document detailing the primary findings of the workflow.
+* Per run:
+  * `wf-flu-report.html`: Easy to use HTML report for all samples on the run
+  * `wf-flu-results.csv`: Typing results in CSV format for onward processing
+* Per sample:
+  * `<SAMPLE_NAME>.stats`: Read stats
+  * `<SAMPLE_NAME>.bam`: Alignment of reads to reference
+  * `<SAMPLE_NAME>.bam.bai`: BAM index
+  * `<SAMPLE_NAME>.annotate.filtered.vcf`: medaka called variants
+  * `<SAMPLE_NAME>.draft.consensus.fasta`: Consensus FASTA
+  * `<SAMPLE_NAME>.insaflu.typing.txt`: abricate typing results
