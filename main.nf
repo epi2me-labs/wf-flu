@@ -11,6 +11,7 @@
 //        as an entry point when using this workflow in isolation.
 
 import groovy.json.JsonBuilder
+import groovy.json.JsonOutput
 nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/fastqingress'
@@ -220,9 +221,7 @@ process getParams {
 process makeReport {
     label "wfflu"
     input:
-        val samples
-        val types
-        val barcodes
+        val metadata
         path "versions/*"
         path "coverage/*"
         path "typing/*"
@@ -232,16 +231,16 @@ process makeReport {
         tuple path("wf-flu-*.html"), path("wf-flu-results.csv")
     script:
         report_name = "wf-flu-" + params.report_name + '.html'
+        def metadata = new JsonBuilder(metadata).toPrettyString()
     """
+    echo '${metadata}' > metadata.json
     report.py $report_name \
         --versions versions \
         --coverage coverage \
-        --samples $samples \
-        --types $types \
-        --barcodes $barcodes \
         --typing typing \
         --fastqstats fastqstats \
-        --params params.json
+        --params params.json \
+        --metadata metadata.json
     """
 }
 
@@ -296,14 +295,13 @@ workflow pipeline {
 
         output_alignments = alignment.alignments.map{ it -> return tuple(it[2], it[3]) }
 
-        sample_ids = fastq.fastqfiles.map{it -> it[0]}.collect().map{it -> it.join(' ')}
-        sample_types = fastq.fastqfiles.map{it-> it[1]}.collect().map{it -> it.join(' ')}
-        sample_barcodes = fastq.fastqfiles.map{it-> it[2]}.collect().map{it -> it.join(' ')}
+        // sample_ids = fastq.fastqfiles.map{it -> it[0]}.collect().map{it -> it.join(' ')}
+        // sample_types = fastq.fastqfiles.map{it-> it[1]}.collect().map{it -> it.join(' ')}
+        // sample_barcodes = fastq.fastqfiles.map{it-> it[2]}.collect().map{it -> it.join(' ')}
+
 
         report = makeReport(
-            sample_ids,
-            sample_types,
-            sample_barcodes,
+            reads.map { it -> return it[1] }.toList(),
             software_versions.collect(),
             coverage.map{it -> it[2] }.collect(),
             type.typing.map{it -> it[2] }.collect(),
@@ -334,6 +332,8 @@ workflow {
         "sample_sheet":params.sample_sheet,
         "sanitize": params.sanitize_fastq,
         "output":params.out_dir])
+
+    println(samples.collect().view())
 
   //get reference
     if (params.reference == null){
