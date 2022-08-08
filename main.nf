@@ -11,7 +11,6 @@
 //        as an entry point when using this workflow in isolation.
 
 import groovy.json.JsonBuilder
-import groovy.json.JsonOutput
 nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/fastqingress'
