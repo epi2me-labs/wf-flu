@@ -240,7 +240,6 @@ def main():
                 'fastqstats': f"{args.fastqstats}/{d['sample_id']}.stats"
             } for d in json.load(metadata)
         }
-        print(sample_details)
 
     report = WFReport(
         "wf-flu Influenza Sequencing Report", "wf-flu",
