@@ -190,7 +190,7 @@ def coverage(sample_details):
         x_range=sorted(list(set(all_summaries.index.values))),
         y_range=sorted(list(set(all_summaries['sample']))),
         width=1100,
-        height=400
+        height=100+(30*len(sample_details))
     )
     ont_gradient = [
         "#ffffff",
