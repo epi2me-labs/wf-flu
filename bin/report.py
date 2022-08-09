@@ -25,8 +25,12 @@ def qc(sample_details):
             'read_count',
             'mean_quality',
             'mean_length'])
-
+    total_reads = 0
     for sample in sorted(sample_details):
+
+        if sample == "unclassified":
+            continue
+
         reads = pd.read_csv(
             sample_details[sample]['fastqstats'], sep='\t', header=0)
 
@@ -38,6 +42,8 @@ def qc(sample_details):
                 'mean_quality': reads["mean_quality"].mean(),
                 'mean_length': reads["read_length"].mean()},
             ignore_index=True)
+
+        total_reads += len(reads.index)
 
     read_count = bars.simple_bar(
         df['sample'].astype(str),
@@ -59,7 +65,33 @@ def qc(sample_details):
     )
     mean_length.xaxis.major_label_orientation = math.pi/4
 
-    return ([read_count, mean_length])
+    return ([read_count, mean_length], total_reads)
+
+
+def unclassified(files, total_reads):
+    """Return a status bar of number of unclassified reads."""
+    unclassified_reads = pd.read_csv(files['fastqstats'], sep='\t', header=0)
+
+    count = len(unclassified_reads.index)
+
+    percentage = round((count / (count+total_reads)) * 100, 1)
+
+    progress_bar = f"""
+    <div class="progress align-items-center" style="height:40px">
+        <div class="progress-bar
+                progress-bar-striped
+                bg-brand-primary" role="progressbar"
+                style="width: {percentage}%;height:40px;"
+                aria-valuenow="{percentage}"
+                aria-valuemin="0" aria-valuemax="100">
+        </div>
+        <span class="justify-content-center d-flex position-absolute w-100">
+        <h6 style="margin-bottom: 0;">
+            {percentage}% of reads are unclassified</h6>
+        </span>
+    </div>"""
+
+    return progress_bar
 
 
 def typing(sample_details):
@@ -77,6 +109,9 @@ def typing(sample_details):
     out = [','.join(header)]
 
     for sample in sorted(sample_details):
+
+        if sample == "unclassified":
+            continue
 
         typing_result = parse_typing_file(sample_details[sample]['typing'])
         typing = typing_result.split(" ")
@@ -131,6 +166,10 @@ def coverage(sample_details):
     """Plot coverage of segments for each sample."""
     all_summaries = None
     for sample in sample_details:
+
+        if sample == "unclassified":
+            continue
+
         coverage = pd.read_csv(
             sample_details[sample]['coverage'], sep='\t', header=None)
         coverage = coverage.rename(
@@ -259,9 +298,25 @@ def main():
     <p>This section contains plots and tables that might be useful in
     determining the success of a run or samples on that run.</p>""")
 
-    for plot in qc(sample_details):
+    qc_results = qc(sample_details)
+    for plot in qc_results[0]:
 
         section.plot(plot)
+
+    total_reads = qc_results[1]
+
+    progress_bar = unclassified(sample_details['unclassified'], total_reads)
+
+    section._add_item(f"""
+    <div class="card bg-light mt-4 mb-4">
+  <div class="card-body">
+    <div class="row align-items-center">
+        <div class="col-md-6">
+        <h5>Unclassified Reads</h5>
+    <p>Unclassified reads are those reads which cannot be assigned
+    a barcode with high confidence by guppy.</p>
+    </div>
+     <div class="col-md-6">{progress_bar}</div></div></div></div>""")
 
     section = report.add_section()
     section._add_item("""<h3>Segment Coverage</h3>
