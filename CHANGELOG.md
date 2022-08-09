@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.0.2]
 ### Added
 - Quality score cut-off parameter.
+### Changed
+- Better processing of metadata.
 
 ## [v0.0.1]
 ### Added
