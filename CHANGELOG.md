@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Changed
 - Heatmap scales according to number of samples.
+- Unclassified handled separatley on report.
 
 ## [v0.0.2]
 ### Added
