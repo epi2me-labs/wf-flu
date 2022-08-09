@@ -2,6 +2,7 @@
 """Create workflow report."""
 
 import argparse
+import json
 import math
 
 from aplanat import bars
@@ -115,7 +116,7 @@ def typing(sample_details):
             </tr>
         """)
 
-        out.append(','.join(line))
+        out.append(','.join(str(x) for x in line))
 
     typing_table.append("</table>")
 
@@ -221,32 +222,25 @@ def main():
         "--fastqstats", default='fastqstats',
         help="fastqstats files from fastcat")
     parser.add_argument(
-        "--samples", nargs='+', default='unknown',
-        help="space separated list of samples")
-    parser.add_argument(
-        "--types", nargs='+', default='unknown',
-        help="space separated list of sample types")
-    parser.add_argument(
-        "--barcodes", nargs='+', default='unknown',
-        help="space separated list of sample barcodes")
+        "--metadata", default='metadata.json',
+        help="sample metadata")
 
     args = parser.parse_args()
 
     global colors
     colors = ont_colors
 
-    sample_details = {
-        sample: {
-            'type': type,
-            'barcode': barcode,
-            'coverage': f"{args.coverage}/{sample}.depth.txt",
-            'typing': f"{args.typing}/{sample}.insaflu.typing.txt",
-            'fastqstats': f"{args.fastqstats}/{sample}.stats"
-        } for sample, type, barcode in zip(
-            args.samples, args.types, args.barcodes
-        )
-    }
-    print(sample_details)
+    with open(args.metadata) as metadata:
+        sample_details = {
+            d['sample_id']: {
+                'type': d['type'],
+                'barcode': d['barcode'],
+                'coverage': f"{args.coverage}/{d['sample_id']}.depth.txt",
+                'typing': f"{args.typing}/{d['sample_id']}.insaflu.typing.txt",
+                'fastqstats': f"{args.fastqstats}/{d['sample_id']}.stats"
+            } for d in json.load(metadata)
+        }
+
     report = WFReport(
         "wf-flu Influenza Sequencing Report", "wf-flu",
         revision=args.revision, commit=args.commit)
