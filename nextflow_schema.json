@@ -51,6 +51,11 @@
                     "description": "Coverage threshold for masking in consensus step.",
                     "default": 20
                 },
+                "min_qscore": {
+                    "type": "number",
+                    "description": "Minimum read quality score for fastcat.",
+                    "default": 9
+                },
                 "downsample": {
                     "type": "integer",
                     "description": "Number of reads to downsample to in each direction, leave null for no downsampling."
@@ -135,7 +140,7 @@
         },
         "wfversion": {
             "type": "string",
-            "default": "v0.0.1",
+            "default": "v0.0.2",
             "hidden": true
         },
         "monochrome_logs": {

@@ -29,7 +29,7 @@ process combineFastq {
         path "${meta.sample_id}.stats", emit: fastqstats
     shell:
     """
-    fastcat -s ${meta.sample_id} -r ${meta.sample_id}.stats -x ${directory} | seqkit seq -m 200 - > ${meta.sample_id}.fastq
+    fastcat -s ${meta.sample_id} -q ${params.min_qscore} -r ${meta.sample_id}.stats -x ${directory} | seqkit seq -m 200 - > ${meta.sample_id}.fastq
     gzip ${meta.sample_id}.fastq
     """
 }
