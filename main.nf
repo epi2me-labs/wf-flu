@@ -314,7 +314,8 @@ workflow pipeline {
             output_alignments.collect(),
             variants.map{it-> it[2]},
             draft.map{it -> it[2]},
-            type.typing.map{it -> it[2]}
+            type.typing.map{it -> it[2]},
+            coverage.map{it -> it[2]}
         )
         // TODO: use something more useful as telemetry
         telemetry = workflow_params
