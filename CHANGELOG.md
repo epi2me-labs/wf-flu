@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Heatmap scales according to number of samples.
 - Unclassified handled separatley on report.
 - Output coverage file.
+### Fixed
+- Bug where if no unclassified report fails.
 
 ## [v0.0.2]
 ### Added

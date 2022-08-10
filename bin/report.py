@@ -305,18 +305,20 @@ def main():
 
     total_reads = qc_results[1]
 
-    progress_bar = unclassified(sample_details['unclassified'], total_reads)
+    if "unclassfied" in sample_details:
+        progress_bar = unclassified(
+            sample_details['unclassified'], total_reads)
 
-    section._add_item(f"""
-    <div class="card bg-light mt-4 mb-4">
-  <div class="card-body">
-    <div class="row align-items-center">
-        <div class="col-md-6">
-        <h5>Unclassified Reads</h5>
-    <p>Unclassified reads are those reads which cannot be assigned
-    a barcode with high confidence by guppy.</p>
-    </div>
-     <div class="col-md-6">{progress_bar}</div></div></div></div>""")
+        section._add_item(f"""
+        <div class="card bg-light mt-4 mb-4">
+      <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+            <h5>Unclassified Reads</h5>
+        <p>Unclassified reads are those reads which cannot be assigned
+        a barcode with high confidence by guppy.</p>
+        </div>
+         <div class="col-md-6">{progress_bar}</div></div></div></div>""")
 
     section = report.add_section()
     section._add_item("""<h3>Segment Coverage</h3>
