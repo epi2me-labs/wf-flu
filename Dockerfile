@@ -4,7 +4,7 @@ ARG ENVFILE=environment.yaml
 
 COPY $ENVFILE $HOME/environment.yaml
 RUN \
-    . $CONDA_DIR/etc/profile.d/mamba.sh \
+    . $CONDA_DIR/etc/profile.d/micromamba.sh \
     && micromamba activate \
     && micromamba install -n base --file $HOME/environment.yaml \
     && micromamba clean --all --yes \
