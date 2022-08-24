@@ -333,8 +333,6 @@ workflow {
         "sanitize": params.sanitize_fastq,
         "output":params.out_dir])
 
-    println(samples.collect().view())
-
   //get reference
     if (params.reference == null){
       params.remove('reference')
