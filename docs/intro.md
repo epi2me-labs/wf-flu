@@ -1,8 +1,10 @@
 ## Introduction
 
-This section of documentation typically contains an overview of the workflow in terms of motivation
-and bioinformatics methods, listing any key tools or algorithms employed, whilst also describing its
-range of use-cases and what a suitable input dataset should look like.
+Influenza is a single stranded RNA virus and contains a 13.5-14.5kb genome which is split into 8 segments encoding 10-14 proteins (dependent on strain).
+
+The virus is classified using two proteins found on the outer surface of the viral capsid. You’ve probably heard of H1N1 Influenza for example. The H represents hemagglutinin and the N is neuraminidase.
+
+The Oxford Nanopore Technologies protocol listed [here](https://community.nanoporetech.com/docs/prepare/library_prep_protocols/ligation-sequencing-influenza-whole-genome) amplifies segments of the Influenza Type A and Type B genomes. Using this analysis workflow users can determine the most likely strain of Influenza to which the sample being sequenced belongs.
 
 ### Data Analysis
 
