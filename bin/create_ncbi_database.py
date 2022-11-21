@@ -54,8 +54,10 @@ for reference in fasta_open.references:
     if gene not in ['HA', 'M1', 'NA']:
         continue
 
-    print(f"""
+    file = open("database.fasta", "w")
+    file.write(f"""
         >epi2melabs~~~{gene}~~~{accession}~~~{virus}|
-        {genotype} {strain.replace('_','')}""")
+        {genotype} {strain.replace('_','')}\n""")
 
-    print(fasta_open.fetch(reference))
+    file.write(f"{fasta_open.fetch(reference)}\n")
+    file.close()
