@@ -14,8 +14,6 @@ import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/fastqingress'
-include { start_ping; end_ping } from './lib/ping'
-
 
 process combineFastq {
     // concatenate fastq and fastq.gz in a dir
@@ -325,13 +323,15 @@ workflow pipeline {
 // entrypoint workflow
 WorkflowMain.initialise(workflow, params, log)
 workflow {
-    start_ping()
+
+    if (params.disable_ping == false) {
+        Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
+    }
+
     samples = fastq_ingress([
-        "input":params.fastq,
-        "sample":params.sample,
-        "sample_sheet":params.sample_sheet,
-        "sanitize": params.sanitize_fastq,
-        "output":params.out_dir])
+       "input":params.fastq,
+       "sample":params.sample,
+       "sample_sheet":params.sample_sheet])
 
   //get reference
     if (params.reference == null){
@@ -353,5 +353,14 @@ workflow {
 
     pipeline(samples,params._reference,params._blastdb)
     output(pipeline.out.results)
-    end_ping(pipeline.out.telemetry)
+}
+
+if (params.disable_ping == false) {
+    workflow.onComplete {
+        Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
+    }
+
+    workflow.onError {
+        Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
+    }
 }

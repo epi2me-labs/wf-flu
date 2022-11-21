@@ -1,12 +1,14 @@
-# Influenza Workflow
+# wf-flu | Influenza Typing Workflow
 
 This repository contains a [nextflow](https://www.nextflow.io/) workflow
 that takes taregtted ONT Influenza sequencing data to produce typing information.
 ## Introduction
 
-This section of documentation typically contains an overview of the workflow in terms of motivation
-and bioinformatics methods, listing any key tools or algorithms employed, whilst also describing its
-range of use-cases and what a suitable input dataset should look like.
+Influenza is a single stranded RNA virus and contains a 13.5-14.5kb genome which is split into 8 segments encoding 10-14 proteins (dependent on strain).
+
+The virus is classified using two proteins found on the outer surface of the viral capsid. You’ve probably heard of H1N1 Influenza for example. The H represents hemagglutinin and the N is neuraminidase.
+
+The Oxford Nanopore Technologies protocol listed [here](https://community.nanoporetech.com/docs/prepare/library_prep_protocols/ligation-sequencing-influenza-whole-genome) amplifies segments of the Influenza Type A and Type B genomes. Using this analysis workflow users can determine the most likely strain of Influenza to which the sample being sequenced belongs.
 
 ### Data Analysis
 
@@ -75,9 +77,9 @@ to run the workflow.
 
 The workflow can currently be run using either
 [Docker](https://www.docker.com/products/docker-desktop) or
-[conda](https://docs.conda.io/en/latest/miniconda.html) to provide isolation of
+[singularity](https://docs.sylabs.io/guides/3.5/user-guide/introduction.html) to provide isolation of
 the required software. Both methods are automated out-of-the-box provided
-either docker of conda is installed.
+either docker of singularity is installed.
 
 It is not required to clone or download the git repository in order to run the workflow.
 For more information on running EPI2ME Labs workflows [visit out website](https://labs.epi2me.io/wfindex).
@@ -110,5 +112,5 @@ The workflow outputs several files that are useful for interpretation and analys
 
 * [nextflow](https://www.nextflow.io/)
 * [docker](https://www.docker.com/products/docker-desktop)
-* [conda](https://docs.conda.io/en/latest/miniconda.html)
+* [singularity](https://docs.sylabs.io/guides/3.5/user-guide/introduction.html)
 * [insaflu](https://insaflu.insa.pt/)
