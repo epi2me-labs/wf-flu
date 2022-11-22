@@ -1,10 +1,10 @@
 ## Introduction
 
-Influenza is a single stranded RNA virus and contains a 13.5-14.5kb genome which is split into 8 segments encoding 10-14 proteins (dependent on strain).
+Influenza is a single-stranded RNA virus and contains a 13.5-14.5kb genome which is split into 8 segments encoding 10-14 proteins (dependent on strain).
 
 The virus is classified using two proteins found on the outer surface of the viral capsid. You’ve probably heard of H1N1 Influenza for example. The H represents hemagglutinin and the N is neuraminidase.
 
-The Oxford Nanopore Technologies protocol listed [here](https://community.nanoporetech.com/docs/prepare/library_prep_protocols/ligation-sequencing-influenza-whole-genome) amplifies segments of the Influenza Type A and Type B genomes. Using this analysis workflow users can determine the most likely strain of Influenza to which the sample being sequenced belongs.
+The Oxford Nanopore Technologies protocol listed [here](https://community.nanoporetech.com/docs/prepare/library_prep_protocols/ligation-sequencing-influenza-whole-genome) amplifies segments of the Influenza Type A and Type B genomes. Using this analysis workflow, users can determine the most likely strain of Influenza to which the sample being sequenced belongs.
 
 ### Data Analysis
 
@@ -12,7 +12,7 @@ Workflow steps:
 1. Concatenate reads & filter out short reads < 200 bases long
 2. Align reads to reference (minimap2)
 3. Coverage calculations (samtools)
-4. Call varinats with medaka
+4. Call variants with medaka
 5. Make a (coverage masked) consensus with bcftools
 6. Type with abricate
 
