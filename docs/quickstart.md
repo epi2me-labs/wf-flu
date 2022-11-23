@@ -1,17 +1,17 @@
 ## Quickstart
 
 The workflow uses [nextflow](https://www.nextflow.io/) to manage compute and
-software resources, as such nextflow will need to be installed before attempting
+software resources. Thus, nextflow will need to be installed before attempting
 to run the workflow.
 
 The workflow can currently be run using either
 [Docker](https://www.docker.com/products/docker-desktop) or
-[singularity](https://docs.sylabs.io/guides/3.5/user-guide/introduction.html) to provide isolation of
-the required software. Both methods are automated out-of-the-box provided
+[Singularity](https://docs.sylabs.io/guides/3.5/user-guide/introduction.html) to provide isolation of
+the required software. Both methods are automated out-of-the-box, provided
 either docker of singularity is installed.
 
 It is not required to clone or download the git repository in order to run the workflow.
-For more information on running EPI2ME Labs workflows [visit out website](https://labs.epi2me.io/wfindex).
+For more information on running EPI2ME Labs workflows [visit our website](https://labs.epi2me.io/wfindex).
 
 **Workflow options**
 
@@ -25,10 +25,10 @@ to see the options for the workflow.
 
 **Workflow outputs**
 
-The workflow outputs several files that are useful for interpretation and analysis:
+The workflow creates several files that are useful for interpretation and analysis:
 
 * Per run:
-  * `wf-flu-report.html`: Easy to use HTML report for all samples on the run
+  * `wf-flu-report.html`: Easy-to-use HTML report for all samples in the run
   * `wf-flu-results.csv`: Typing results in CSV format for onward processing
 * Per sample:
   * `<SAMPLE_NAME>.stats`: Read stats
