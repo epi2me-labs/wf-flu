@@ -34,10 +34,8 @@ process combineFastq {
 
 
 process alignReads {
-    // align reads to reference
-
     label "wfflu"
-    cpus 1
+    cpus 2
     input:
         tuple val(sample_id), val(type), val(barcode), path(sample_fastq)
         path reference
@@ -46,20 +44,19 @@ process alignReads {
         tuple path("${sample_id}.bamstats"), path("${sample_id}.bam.summary"), emit: bamstats
     shell:
     """
-    mini_align -i ${sample_fastq} -r ${reference} -p ${sample_id}_tmp -t $task.cpus -m
+    mini_align -i ${sample_fastq} -r ${reference} -p ${sample_id}_tmp -t ${params.align_threads} -m
 
     # keep only mapped reads
     samtools view --write-index -F 4 ${sample_id}_tmp.bam -o ${sample_id}.bam##idx##${sample_id}.bam.bai
 
     # get stats from bam
-    stats_from_bam -o ${sample_id}.bamstats -s ${sample_id}.bam.summary -t $task.cpus ${sample_id}.bam
+    stats_from_bam -o ${sample_id}.bamstats -s ${sample_id}.bam.summary -t ${params.align_threads} ${sample_id}.bam
     """
 }
 
 process coverageCalc {
-  depth_threads = {params.threads >= 4  ? 4 : params.threads}
       label "wfflu"
-      cpus depth_threads
+      cpus 2
       input:
           tuple val(sample_id), val(type), path(bam), path(bai)
       output:
@@ -72,7 +69,7 @@ process coverageCalc {
 
 process downSample {
     label 'wfflu'
-    cpus params.threads
+    cpus 2
     input:
         tuple val(sample_id), val(type), path(bam), path(bai)
         path reference
@@ -136,7 +133,7 @@ process downSample {
 
 process medakaVariants {
     label "wfflu"
-    cpus params.threads
+    cpus 2
     input:
         tuple val(sample_id), val(type), path(bam), path(bai)
         path reference
@@ -155,7 +152,7 @@ process medakaVariants {
 
 process makeConsensus {
     label "wfflu"
-    cpus params.threads
+    cpus 2
     input:
         tuple val(sample_id), val(type), path(vcf), path(depth)
         path reference
@@ -172,7 +169,7 @@ process makeConsensus {
 
 process typeFlu {
     label "wfflutyping"
-    cpus params.threads
+    cpus 2
     input:
         tuple val(sample_id), val(type), path(consensus)
         path(blastdb)

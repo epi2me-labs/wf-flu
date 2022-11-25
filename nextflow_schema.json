@@ -100,6 +100,13 @@
                     "description": "Number of reads to downsample to in each direction, leave blank for no downsampling.",
                     "help_text": "By default the workflow will use all high quality reads for typing, however, in experiements where you have a lot of data you might want to restrict the amount of reads processed to speed up the time to answer. Specify the number of reads you would like to downsample to here.",
                     "min": 1
+                },
+                "align_threads": {
+                    "type": "number",
+                    "description": "Number of CPU threads to use per alignment task.",
+                    "help_text": "The total CPU resource used by the workflow is constrained by the executor configuration.",
+                    "min": 1,
+                    "default": 4
                 }
             }
         },
