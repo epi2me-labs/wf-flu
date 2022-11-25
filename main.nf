@@ -227,7 +227,7 @@ process makeReport {
     output:
         tuple path("wf-flu-*.html"), path("wf-flu-results.csv")
     script:
-        report_name = "wf-flu-" + params.report_name + '.html'
+        report_name = "wf-flu-report.html"
         def metadata = new JsonBuilder(metadata).toPrettyString()
     """
     echo '${metadata}' > metadata.json
