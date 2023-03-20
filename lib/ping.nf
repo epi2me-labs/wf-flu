@@ -11,7 +11,7 @@ process pingMessage {
         disable = params.disable_ping ? '--disable' : ''
         meta = json.name != 'OPTIONAL_FILE' ? "--meta $json": ''
     """
-    ping.py \
+    workflow-glue ping \
         --hostname $hostname \
         --opsys "$opsys" \
         --session $workflow.sessionId \
