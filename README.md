@@ -2,6 +2,10 @@
 
 This repository contains a [nextflow](https://www.nextflow.io/) workflow
 that takes targeted ONT Influenza sequencing data to produce typing information.
+
+
+
+
 ## Introduction
 
 Influenza is a single-stranded RNA virus and contains a 13.5-14.5kb genome which is split into 8 segments encoding 10-14 proteins (dependent on strain).
@@ -69,6 +73,10 @@ Typing is carried out using [abricate](https://github.com/tseemann/abricate) usi
 |insaflu|HA|M58428|Victoria M58428.1 Influenza B/Victoria/2/87, hemagglutinin (seg 4), RNA
 |insaflu|NA|EU429793|N4 EU429793.1 Influenza A virus (A/turkey/Ontario/6118/1968(H8N4)) segment 6 neuraminidase (NA) mRNA, complete cds
 |insaflu|NA|EU429795|N6 EU429795.1 Influenza A virus (A/duck/England/1/1956(H11N6)) segment 6 neuraminidase (NA) mRNA, complete cds
+
+
+
+
 ## Quickstart
 
 The workflow uses [nextflow](https://www.nextflow.io/) to manage compute and
@@ -108,6 +116,10 @@ The workflow creates several files that are useful for interpretation and analys
   * `<SAMPLE_NAME>.annotate.filtered.vcf`: medaka called variants
   * `<SAMPLE_NAME>.draft.consensus.fasta`: Consensus FASTA
   * `<SAMPLE_NAME>.insaflu.typing.txt`: abricate typing results
+
+
+
+
 ## Useful links
 
 * [nextflow](https://www.nextflow.io/)
