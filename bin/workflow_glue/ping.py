@@ -1,21 +1,17 @@
 #!/usr/bin/env python
 """Send workflow ping."""
 
-import argparse
 import json
 import uuid
 
 from epi2melabs import ping
 
-
-def get_uuid(val):
-    """Construct UUID from string."""
-    return uuid.UUID(str(val))
+from .util import wf_parser  # noqa: ABS101
 
 
-def main():
-    """Run the entry point."""
-    parser = argparse.ArgumentParser()
+def argparser():
+    """Argument parser for entrypoint."""
+    parser = wf_parser("ping")
     parser.add_argument(
         "--hostname", required=True, default=None,
         help="ping some meta")
@@ -40,8 +36,16 @@ def main():
     parser.add_argument(
         "--disable", action='store_true',
         help="Run the script but don't send the ping")
-    args = parser.parse_args()
+    return parser
 
+
+def get_uuid(val):
+    """Construct UUID from string."""
+    return uuid.UUID(str(val))
+
+
+def main(args):
+    """Run the entry point."""
     meta = None
     if args.meta:
         with open(args.meta, "r") as json_file:
@@ -59,7 +63,3 @@ def main():
             commit=args.commit,
             meta=meta
         )
-
-
-if __name__ == "__main__":
-    main()

@@ -228,7 +228,7 @@ process makeReport {
         def metadata = new JsonBuilder(metadata).toPrettyString()
     """
     echo '${metadata}' > metadata.json
-    report.py $report_name \
+    workflow-glue report $report_name \
         --versions versions \
         --coverage coverage \
         --typing typing \
