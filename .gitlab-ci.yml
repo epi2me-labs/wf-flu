@@ -7,3 +7,4 @@ variables:
     # We'll use the single-file case for these runs
     NF_WORKFLOW_OPTS: "--fastq test_data/fastq --downsample 50"
     CI_FLAVOUR: "new"
+    SKIP_PYTHON_TESTS: "not applicable"
