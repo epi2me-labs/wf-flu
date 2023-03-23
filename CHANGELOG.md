@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI updates
 - Removed ping scripts
 - Update check_sample_sheet.py
+- New fastqingress implementation
 
 ## [v0.0.6]
 ### Fixed

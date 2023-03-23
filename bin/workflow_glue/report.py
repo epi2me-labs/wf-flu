@@ -17,7 +17,7 @@ from .flu import parse_typing_file  # noqa: ABS101
 from .util import wf_parser  # noqa: ABS101
 
 
-def qc(sample_details):
+def qc(sample_details, fastqstats):
     """Make a QC megaplot."""
     df = pd.DataFrame(
         columns=[
@@ -27,13 +27,15 @@ def qc(sample_details):
             'mean_quality',
             'mean_length'])
     total_reads = 0
+
+    fastqstats_df = pd.read_csv(fastqstats, sep='\t', header=0)
+
     for sample in sorted(sample_details):
 
         if sample == "unclassified":
             continue
 
-        reads = pd.read_csv(
-            sample_details[sample]['fastqstats'], sep='\t', header=0)
+        reads = fastqstats_df[fastqstats_df['sample_name'] == sample]
 
         df = df.append(
             {
@@ -243,12 +245,12 @@ def main(args):
 
     with open(args.metadata) as metadata:
         sample_details = {
-            d['sample_id']: {
+            d['alias']: {
                 'type': d['type'],
                 'barcode': d['barcode'],
-                'coverage': f"{args.coverage}/{d['sample_id']}.depth.txt",
-                'typing': f"{args.typing}/{d['sample_id']}.insaflu.typing.txt",
-                'fastqstats': f"{args.fastqstats}/{d['sample_id']}.stats"
+                'coverage': f"{args.coverage}/{d['alias']}.depth.txt",
+                'typing': f"{args.typing}/{d['alias']}.insaflu.typing.txt",
+                'fastqstats': f"{args.fastqstats}/{d['alias']}.stats"
             } for d in json.load(metadata)
         }
 
@@ -270,7 +272,7 @@ def main(args):
     <p>This section contains plots and tables that might be useful in
     determining the success of a run or samples on that run.</p>""")
 
-    qc_results = qc(sample_details)
+    qc_results = qc(sample_details, args.fastqstats)
     for plot in qc_results[0]:
 
         section.plot(plot)
@@ -335,7 +337,7 @@ def argparser():
         help="abricate typing files")
     parser.add_argument(
         "--fastqstats", default='fastqstats',
-        help="fastqstats files from fastcat")
+        help="fastqstats file from fastcat")
     parser.add_argument(
         "--metadata", default='metadata.json',
         help="sample metadata")

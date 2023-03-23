@@ -15,42 +15,24 @@ nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/fastqingress'
 
-process combineFastq {
-    // concatenate fastq and fastq.gz in a dir
-
-    label "wfflu"
-    cpus 1
-    input:
-        tuple path(directory), val(meta)
-    output:
-        tuple val(meta.sample_id), val(meta.type), val(meta.barcode), path("${meta.sample_id}.fastq.gz"), emit: fastqfiles
-        path "${meta.sample_id}.stats", emit: fastqstats
-    shell:
-    """
-    fastcat -s ${meta.sample_id} -q ${params.min_qscore} -r ${meta.sample_id}.stats -x ${directory} | seqkit seq -m 200 - > ${meta.sample_id}.fastq
-    gzip ${meta.sample_id}.fastq
-    """
-}
-
-
 process alignReads {
     label "wfflu"
     cpus 2
     input:
-        tuple val(sample_id), val(type), val(barcode), path(sample_fastq)
+        tuple val(meta), path(sample_fastq), path(fastq_stats)
         path reference
     output:
-        tuple val(sample_id), val(type), path("${sample_id}.bam"), path("${sample_id}.bam.bai"), emit: alignments
-        tuple path("${sample_id}.bamstats"), path("${sample_id}.bam.summary"), emit: bamstats
+        tuple val(meta.alias), val(meta.type), path("${meta.alias}.bam"), path("${meta.alias}.bam.bai"), emit: alignments
+        tuple path("${meta.alias}.bamstats"), path("${meta.alias}.bam.summary"), emit: bamstats
     shell:
     """
-    mini_align -i ${sample_fastq} -r ${reference} -p ${sample_id}_tmp -t ${params.align_threads} -m
+    mini_align -i ${sample_fastq} -r ${reference} -p ${meta.alias}_tmp -t ${params.align_threads} -m
 
     # keep only mapped reads
-    samtools view --write-index -F 4 ${sample_id}_tmp.bam -o ${sample_id}.bam##idx##${sample_id}.bam.bai
+    samtools view --write-index -F 4 ${meta.alias}_tmp.bam -o ${meta.alias}.bam##idx##${meta.alias}.bam.bai
 
     # get stats from bam
-    stats_from_bam -o ${sample_id}.bamstats -s ${sample_id}.bam.summary -t ${params.align_threads} ${sample_id}.bam
+    stats_from_bam -o ${meta.alias}.bamstats -s ${meta.alias}.bam.summary -t ${params.align_threads} ${meta.alias}.bam
     """
 }
 
@@ -58,11 +40,11 @@ process coverageCalc {
       label "wfflu"
       cpus 2
       input:
-          tuple val(sample_id), val(type), path(bam), path(bai)
+          tuple val(alias), val(type), path(bam), path(bai)
       output:
-          tuple val(sample_id), val(type), path("${sample_id}.depth.txt")
+          tuple val(alias), val(type), path("${alias}.depth.txt")
       """
-      samtools depth -aa ${bam} -Q 20 -q 1 > ${sample_id}.depth.txt
+      samtools depth -aa ${bam} -Q 20 -q 1 > ${alias}.depth.txt
       """
 
 }
@@ -71,13 +53,13 @@ process downSample {
     label 'wfflu'
     cpus 2
     input:
-        tuple val(sample_id), val(type), path(bam), path(bai)
+        tuple val(alias), val(type), path(bam), path(bai)
         path reference
     output:
-        tuple val(sample_id), val(type), path("${sample_id}_all_merged.sorted.bam"), path("${sample_id}_all_merged.sorted.bam.bai"), emit: alignments
+        tuple val(alias), val(type), path("${alias}_all_merged.sorted.bam"), path("${alias}_all_merged.sorted.bam.bai"), emit: alignments
     """
     # split bam
-    header_count=`samtools view -H ${sample_id}.bam | wc -l`
+    header_count=`samtools view -H ${alias}.bam | wc -l`
     lines=\$(( ${params.downsample} + \$header_count + 1 ))
 
     # get the regions from the fasta
@@ -100,32 +82,32 @@ process downSample {
 
       # filter reads in region and covering region
 
-      samtools view ${bam} \${region} | awk -v upper="\${upper}" -v lower="\${lower}" '{if(length(\$10) < upper && length(\$10) > lower) print \$0}' > ${sample_id}_\${region}.tmp.sam;
+      samtools view ${bam} \${region} | awk -v upper="\${upper}" -v lower="\${lower}" '{if(length(\$10) < upper && length(\$10) > lower) print \$0}' > ${alias}_\${region}.tmp.sam;
 
       # ignore regions with no reads
-      count=`wc -l < ${sample_id}_\${region}.tmp.sam`
+      count=`wc -l < ${alias}_\${region}.tmp.sam`
 
       if [ "\${count}" -eq "0" ];
       then
         echo "no reads in \${region} so continuing"
-        cat head.sam | samtools view -bh > ${sample_id}_\${region}_all.bam
+        cat head.sam | samtools view -bh > ${alias}_\${region}_all.bam
         continue;
       fi
 
-      cat head.sam ${sample_id}_\${region}.tmp.sam | samtools view -bh > ${sample_id}_\${region}.bam
+      cat head.sam ${alias}_\${region}.tmp.sam | samtools view -bh > ${alias}_\${region}.bam
 
-      samtools view -h -F16 ${sample_id}_\${region}.bam > ${sample_id}_\${region}_fwd.sam;
-      head -\${lines} ${sample_id}_\${region}_fwd.sam | samtools view -bh - > ${sample_id}_\${region}_fwd.bam;
+      samtools view -h -F16 ${alias}_\${region}.bam > ${alias}_\${region}_fwd.sam;
+      head -\${lines} ${alias}_\${region}_fwd.sam | samtools view -bh - > ${alias}_\${region}_fwd.bam;
 
-      samtools view -h -f16 ${sample_id}_\${region}.bam > ${sample_id}_\${region}_rev.sam;
-      head -\${lines} ${sample_id}_\${region}_rev.sam | samtools view -bh - > ${sample_id}_\${region}_rev.bam;
-      samtools merge ${sample_id}_\${region}_all.bam ${sample_id}_\${region}_fwd.bam ${sample_id}_\${region}_rev.bam;
+      samtools view -h -f16 ${alias}_\${region}.bam > ${alias}_\${region}_rev.sam;
+      head -\${lines} ${alias}_\${region}_rev.sam | samtools view -bh - > ${alias}_\${region}_rev.bam;
+      samtools merge ${alias}_\${region}_all.bam ${alias}_\${region}_fwd.bam ${alias}_\${region}_rev.bam;
 
     done < regions.txt
 
-    samtools merge ${sample_id}_all_merged.bam *_all.bam
-    samtools sort ${sample_id}_all_merged.bam > ${sample_id}_all_merged.sorted.bam
-    samtools index ${sample_id}_all_merged.sorted.bam
+    samtools merge ${alias}_all_merged.bam *_all.bam
+    samtools sort ${alias}_all_merged.bam > ${alias}_all_merged.sorted.bam
+    samtools index ${alias}_all_merged.sorted.bam
     echo "done"
 
     """
@@ -135,17 +117,17 @@ process medakaVariants {
     label "wfflu"
     cpus 2
     input:
-        tuple val(sample_id), val(type), path(bam), path(bai)
+        tuple val(alias), val(type), path(bam), path(bai)
         path reference
     output:
-        tuple val(sample_id), val(type), path("${sample_id}.annotate.filtered.vcf")
+        tuple val(alias), val(type), path("${alias}.annotate.filtered.vcf")
     """
 
-    medaka consensus ${bam} ${sample_id}.hdf
-    medaka variant --gvcf ${reference} ${sample_id}.hdf ${sample_id}.vcf --verbose
-    medaka tools annotate --debug --pad 25 ${sample_id}.vcf ${reference} ${bam} ${sample_id}.annotate.vcf
+    medaka consensus ${bam} ${alias}.hdf
+    medaka variant --gvcf ${reference} ${alias}.hdf ${alias}.vcf --verbose
+    medaka tools annotate --debug --pad 25 ${alias}.vcf ${reference} ${bam} ${alias}.annotate.vcf
 
-    bcftools filter -e "ALT='.'" ${sample_id}.annotate.vcf | bcftools filter -o ${sample_id}.annotate.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
+    bcftools filter -e "ALT='.'" ${alias}.annotate.vcf | bcftools filter -o ${alias}.annotate.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
     """
 
 }
@@ -154,16 +136,16 @@ process makeConsensus {
     label "wfflu"
     cpus 2
     input:
-        tuple val(sample_id), val(type), path(vcf), path(depth)
+        tuple val(alias), val(type), path(vcf), path(depth)
         path reference
     output:
-        tuple val(sample_id), val(type), path("${sample_id}.draft.consensus.fasta")
+        tuple val(alias), val(type), path("${alias}.draft.consensus.fasta")
     """
     awk '{if (\$3<${params.min_coverage}) print \$1"\t"\$2+1}' ${depth} > mask.regions
     bgzip ${vcf}
     tabix ${vcf}.gz
 
-    bcftools consensus --mask mask.regions  --mark-del '-' --mark-ins lc --fasta-ref ${reference} -o ${sample_id}.draft.consensus.fasta ${vcf}.gz
+    bcftools consensus --mask mask.regions  --mark-del '-' --mark-ins lc --fasta-ref ${reference} -o ${alias}.draft.consensus.fasta ${vcf}.gz
     """
 }
 
@@ -171,14 +153,14 @@ process typeFlu {
     label "wfflutyping"
     cpus 2
     input:
-        tuple val(sample_id), val(type), path(consensus)
+        tuple val(alias), val(type), path(consensus)
         path(blastdb)
     output:
-        tuple val(sample_id), val(type), path("${sample_id}.insaflu.typing.txt"), emit: typing
+        tuple val(alias), val(type), path("${alias}.insaflu.typing.txt"), emit: typing
         path "abricate.version", emit: version
     """
     abricate --version | sed 's/ /,/' > abricate.version
-    abricate --datadir ${blastdb} --db insaflu -minid 70 -mincov 60 --quiet ${consensus} 1> ${sample_id}.insaflu.typing.txt
+    abricate --datadir ${blastdb} --db insaflu -minid 70 -mincov 60 --quiet ${consensus} 1> ${alias}.insaflu.typing.txt
     """
 }
 
@@ -219,7 +201,7 @@ process makeReport {
         path "versions/*"
         path "coverage/*"
         path "typing/*"
-        path "fastqstats/*"
+        path "fastqstats/per-file-stats.tsv"
         path "params.json"
     output:
         tuple path("wf-flu-*.html"), path("wf-flu-results.csv")
@@ -232,7 +214,7 @@ process makeReport {
         --versions versions \
         --coverage coverage \
         --typing typing \
-        --fastqstats fastqstats \
+        --fastqstats fastqstats/per-file-stats.tsv \
         --params params.json \
         --metadata metadata.json
     """
@@ -259,21 +241,21 @@ process output {
 // workflow module
 workflow pipeline {
     take:
-        reads
+        samples
         reference
         blastdb
     main:
-        fastq = combineFastq(reads)
-        alignment = alignReads(fastq.fastqfiles,reference)
+
+        alignment = alignReads(samples, reference)
         coverage = coverageCalc(alignment.alignments)
 
         // do crude downsampling
         if (params.downsample != null){
-          println("Downsampling!!!")
-          downsample = downSample(alignment.alignments, reference)
+            println("Downsampling!!!")
+            downsample = downSample(alignment.alignments, reference)
         } else {
-          println("NOT Downsampling!!!")
-          downsample = alignment
+            println("NOT Downsampling!!!")
+            downsample = alignment
         }
 
         variants = medakaVariants(downsample.alignments, reference)
@@ -289,24 +271,18 @@ workflow pipeline {
 
         output_alignments = alignment.alignments.map{ it -> return tuple(it[2], it[3]) }
 
-        // sample_ids = fastq.fastqfiles.map{it -> it[0]}.collect().map{it -> it.join(' ')}
-        // sample_types = fastq.fastqfiles.map{it-> it[1]}.collect().map{it -> it.join(' ')}
-        // sample_barcodes = fastq.fastqfiles.map{it-> it[2]}.collect().map{it -> it.join(' ')}
-
-
         report = makeReport(
-            reads.map { it -> return it[1] }.toList(),
+            samples.map { it -> return it[0] }.toList(),
             software_versions.collect(),
             coverage.map{it -> it[2] }.collect(),
             type.typing.map{it -> it[2] }.collect(),
-            fastq.fastqstats.collect(),
+            samples | map { it[2].resolve("per-read-stats.tsv") } | collectFile(keepHeader: true),
             workflow_params
         )
 
     emit:
-        results = fastq.fastqstats.concat(
+        results = output_alignments.concat(
             report.collect(),
-            output_alignments.collect(),
             variants.map{it-> it[2]},
             draft.map{it -> it[2]},
             type.typing.map{it -> it[2]},
@@ -326,9 +302,10 @@ workflow {
     }
 
     samples = fastq_ingress([
-       "input":params.fastq,
-       "sample":params.sample,
-       "sample_sheet":params.sample_sheet])
+    "input": params.fastq,
+    "fastcat_stats": true,
+    "sample_sheet": params.sample_sheet])
+
 
   //get reference
     if (params.reference == null){
