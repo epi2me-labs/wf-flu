@@ -1,4 +1,4 @@
-barcode,sample_id,type
+barcode,alias,type
 barcode02,H1N1_strain_A-PR-8-34,test_sample
 barcode03,H1N1_strain_A-Virginia-ATCC1-2009,test_sample
 barcode04,H3N2_strain_A-Virginia-ATCC6-2012,test_sample
