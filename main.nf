@@ -113,24 +113,40 @@ process downSample {
     """
 }
 
-process medakaVariants {
+process lookup_medaka_consensus_model {
     label "wfflu"
+    input:
+        path("lookup_table")
+        val basecall_model
+    output:
+        stdout
+    shell:
+    '''
+    medaka_model=$(workflow-glue resolve_medaka_model lookup_table '!{basecall_model}' "medaka_consensus")
+    echo $medaka_model
+    '''
+}
+
+
+process medakaVariants {
+    label "medaka"
     cpus 2
     input:
-        tuple val(alias), val(type), path(bam), path(bai)
+        tuple val(alias), val(type), path(bam), path(bai), val (medaka_model)
         path reference
     output:
         tuple val(alias), val(type), path("${alias}.annotate.filtered.vcf")
+    script:
+        def model = medaka_model
     """
-
-    medaka consensus ${bam} ${alias}.hdf
+    medaka consensus ${bam} ${alias}.hdf --model ${model}
     medaka variant --gvcf ${reference} ${alias}.hdf ${alias}.vcf --verbose
     medaka tools annotate --debug --pad 25 ${alias}.vcf ${reference} ${bam} ${alias}.annotate.vcf
 
     bcftools filter -e "ALT='.'" ${alias}.annotate.vcf | bcftools filter -o ${alias}.annotate.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
     """
-
 }
+
 
 process makeConsensus {
     label "wfflu"
@@ -173,7 +189,6 @@ process getVersions {
     """
     python -c "import pysam; print(f'pysam,{pysam.__version__}')" >> versions.txt
     fastcat --version | sed 's/^/fastcat,/' >> versions.txt
-    medaka --version | sed 's/ /,/' >> versions.txt
     bcftools --version | head -1 | sed 's/ /,/' >> versions.txt
     samtools --version | grep samtools | head -1 | sed 's/ /,/' >> versions.txt
     """
@@ -258,7 +273,18 @@ workflow pipeline {
             downsample = alignment
         }
 
-        variants = medakaVariants(downsample.alignments, reference)
+        if(params.medaka_consensus_model) {
+            log.warn "Overriding Medaka consensus model with ${params.medaka_consensus_model}."
+            medaka_consensus_model = Channel.fromList([params.medaka_consensus_model])
+        }
+        else {
+            lookup_table = Channel.fromPath("${projectDir}/data/medaka_models.tsv", checkIfExists: true)
+            medaka_consensus_model = lookup_medaka_consensus_model(lookup_table, params.basecaller_cfg)
+        }
+
+        bams_for_calling = downsample.alignments.combine(medaka_consensus_model)
+
+        variants = medakaVariants(bams_for_calling, reference)
 
         for_draft = variants.join(coverage.map{it -> return tuple(it[0], it[2])})
 
