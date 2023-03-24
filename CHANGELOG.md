@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI updates
 - Removed ping scripts
 - Update check_sample_sheet.py
+- `--basecall_cfg` is now used to determine a suitable Medaka model, alternatively provide the name of a model with `--medaka_consensus_model` to override automatic selection
 - New fastqingress implementation
 
 ## [v0.0.6]

@@ -8,3 +8,20 @@ variables:
     NF_WORKFLOW_OPTS: "--fastq test_data/fastq --sample_sheet test_data/sample_sheet.csv --downsample 50"
     CI_FLAVOUR: "new"
     SKIP_PYTHON_TESTS: "not applicable"
+
+docker-run:
+    parallel:
+        matrix:
+          - MATRIX_NAME: [
+            "default", "basecaller-config"]
+    rules:
+        - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
+          when: never
+        - if: $MATRIX_NAME == "default"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --sample_sheet test_data/sample_sheet.csv --downsample 50"
+        - if: $MATRIX_NAME == "basecaller-config"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --sample_sheet test_data/sample_sheet.csv --downsample 50 --basecaller_cfg dna_r9.4.1_450bps_hac"
+
+
