@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Added
 - Added workflow-glue
+- Added Kit 14 test data
 ### Changed
 - CI updates
 - Removed ping scripts
