@@ -59,20 +59,43 @@ def main(args):
         p(
             """
             This table gives the influenza type and strain for each sample. Samples are
-            first aligned to IRMA to generate a consensus of alignments and then
-            typed with Abricate using the INSaFLU database.
+            first aligned to IRMA to generate a consensus of alignments, and then
+            typed with Abricate using the INSaFLU database. Please see the table in the
+            section below ('Typing details') for full Abricate results. These results
+            are especially useful if typing results are discordant.
             """
         )
 
         typing_df = typing(sample_details, args)
         typing_df.columns = typing_df.columns.str.title().str.replace("_", " ")
+        typing_df.rename(columns={'Ha': 'HA', 'Na': 'NA'}, inplace=True)
         DataTable.from_pandas(
             typing_df, use_index=False, export=True, file_name='wf-flu-types')
 
+    with report.add_section("Typing details", "Typing details"):
+        tabs = Tabs()
+        with tabs.add_dropdown_menu('Typing details', change_header=True):
+            for typing_file in glob.glob(f'{args.typing}/*.txt'):
+                df = pd.read_csv(typing_file, sep="\t", header=0, index_col=0)
+                df = df.drop([
+                    'START',
+                    'END',
+                    'STRAND',
+                    'DATABASE',
+                    'ACCESSION',
+                    'PRODUCT'], axis=1)
+                df.rename(columns={'RESISTANCE': 'DETAILS'}, inplace=True)
+                df.columns = [x.title() for x in df.columns]
+                df.columns = df.columns.str.replace('_', ' ')
+                rename = typing_file.replace(
+                    '.insaflu.typing.txt', '').replace('typing/', '')
+                with tabs.add_dropdown_tab(rename):
+                    DataTable.from_pandas(df, use_index=False, export=True)
+
         p(
             """
-            * If HA and NA differ this is because the segments were typed to a different
-            flu strain. Full details in the Abricate table.
+            Select samples from the drop-down in this table to view detailed Abricate
+            results.
             """
         )
 
