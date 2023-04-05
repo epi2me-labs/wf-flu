@@ -120,7 +120,7 @@
                 "downsample": {
                     "type": "integer",
                     "description": "Number of reads to downsample to in each direction, leave blank for no downsampling.",
-                    "help_text": "By default the workflow will use all high quality reads for typing, however, in experiements where you have a lot of data you might want to restrict the amount of reads processed to speed up the time to answer. Specify the number of reads you would like to downsample to here.",
+                    "help_text": "By default the workflow will use all high quality reads for typing. However, in experiments where you have a lot of data you might want to restrict the amount of reads processed to speed up the time to answer. Specify the number of reads you would like to downsample to here.",
                     "min": 1
                 },
                 "align_threads": {
