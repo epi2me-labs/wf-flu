@@ -21,8 +21,6 @@ def process_typing(typing_json):
         return None
     if len(typing['type']) > 1:
         return None
-    if (typing['HA'][0] != typing['NA'][0]):
-        return None
     return typing
 
 
@@ -31,12 +29,21 @@ def find_nextclade(typing, nextclade_datasets):
     datasets = list()
     with open(nextclade_datasets, "r") as n:
         csv_reader = csv.DictReader(n, delimiter=",")
-        strain = typing["HA"][0]
+
+        flu_type = typing['type'][0]
+
+        if flu_type == "Type_A":
+            strain = f'{typing["HA"][0]}{typing["NA"][0]}'
+        elif flu_type == "Type_B":
+            strain = f'{typing["HA"][0]}'
+        else:
+            raise ValueError(f'{flu_type} is not Type_A or Type_B')
+
         for record in csv_reader:
             if record["strain"] == strain:
                 datasets.append(
                     {
-                        "type": typing["type"][0],
+                        "type": flu_type.replace("Type_", ""),
                         "strain": strain,
                         "dataset": record["dataset"],
                         "gene": record["gene"],
@@ -52,6 +59,7 @@ def make_consensus(datasets, consensus, alias):
     results = list()
     for dataset in datasets:
         result = dict(dataset=dataset["dataset"])
+
         if dataset['type'] == "A":
             if dataset["gene"] == "HA":
                 strain = f'{dataset["type"]}_{dataset["gene"]}_{dataset["strain"][:2]}'
