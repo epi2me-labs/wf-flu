@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+### Changed
+- Update licence to ONT Public License
+
 ## [v0.0.8]
 ### Fixed
 - Poor typing performance after INSaFLU update. Rollback to version used in v0.0.6.
