@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Changed
 - Update licence to ONT Public License
+- Improved `Typing` table in report to make typing results clearer
 
 ## [v0.0.8]
 ### Fixed

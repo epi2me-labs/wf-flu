@@ -2,8 +2,9 @@
 import csv
 import glob
 import json
+import re
 
-from dominate.tags import p
+from dominate.tags import h5, p, span, table, tbody, td, th, thead, tr
 import ezcharts as ezc
 from ezcharts.components import fastcat
 from ezcharts.components.ezchart import EZChart
@@ -39,6 +40,20 @@ def typing(sample_details, args):
     return data
 
 
+def get_archetype(row):
+    """Return archetype string from typing table."""
+    if re.match(r"H\d+", row['HA']) and re.match(r"N\d+", row['NA']):
+        return row['HA']+row['NA']
+    elif row['HA'] == 'undetermined' and row['NA'] == 'undetermined':
+        return 'undetermined'
+    elif row['HA'] == 'undetermined' and row['NA'] != 'undetermined':
+        return row['NA']
+    elif row['HA'] != 'undetermined' and row['NA'] == 'undetermined':
+        return row['HA']
+    else:
+        return 'undetermined'
+
+
 def main(args):
     """Run the entry point."""
     logger = get_named_logger("Report")
@@ -65,12 +80,34 @@ def main(args):
             are especially useful if typing results are discordant.
             """
         )
-
         typing_df = typing(sample_details, args)
         typing_df.columns = typing_df.columns.str.title().str.replace("_", " ")
         typing_df.rename(columns={'Ha': 'HA', 'Na': 'NA'}, inplace=True)
-        DataTable.from_pandas(
-            typing_df, use_index=False, export=True, file_name='wf-flu-types')
+        # add a new column 'Archetype'
+        typing_df['Archetype'] = typing_df.apply(lambda row: get_archetype(row), axis=1)
+        typing_df = typing_df[['Alias', 'Barcode', 'Type', 'Archetype']]
+
+        with table(cls="table"):
+            with thead():
+                for columns in typing_df.columns:
+                    th(f"{columns}")
+            with tbody():
+                for index, row in typing_df.iterrows():
+                    with tr():
+                        for i in range(4):
+                            cell = td()
+                            if row[i] == 'undetermined':
+                                cell.add(span(row[i], cls="badge bg-warning"))
+                            elif row.index[i] == 'Type' and row[i] == 'Type_A':
+                                cell.add(h5(span('A', cls="badge bg-primary")))
+                            elif row.index[i] == 'Type' and row[i] == 'Type_B':
+                                cell.add(h5(span('B', cls="badge bg-info")))
+                            elif row.index[i] == 'Archetype' and row.Type == "Type_A":
+                                cell.add(span(row[i], cls="badge bg-primary"))
+                            elif row.index[i] == 'Archetype' and row.Type == "Type_B":
+                                cell.add(span(row[i], cls="badge bg-info"))
+                            else:
+                                cell.add(span(row[i]))
 
     with report.add_section("Typing details", "Typing details"):
         tabs = Tabs()
