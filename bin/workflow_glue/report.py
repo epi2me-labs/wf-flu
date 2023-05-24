@@ -97,15 +97,20 @@ def main(args):
                         for i in range(4):
                             cell = td()
                             if row[i] == 'undetermined':
-                                cell.add(span(row[i], cls="badge bg-warning"))
+                                cell.add(h5(span(
+                                    'Undetermined', cls="badge bg-warning"),
+                                    cls="mb-0"))
                             elif row.index[i] == 'Type' and row[i] == 'Type_A':
-                                cell.add(h5(span('A', cls="badge bg-primary")))
+                                cell.add(
+                                    h5(span('A', cls="badge bg-primary"), cls="mb-0"))
                             elif row.index[i] == 'Type' and row[i] == 'Type_B':
-                                cell.add(h5(span('B', cls="badge bg-info")))
+                                cell.add(h5(span('B', cls="badge bg-info"), cls="mb-0"))
                             elif row.index[i] == 'Archetype' and row.Type == "Type_A":
-                                cell.add(span(row[i], cls="badge bg-primary"))
+                                cell.add(h5(span(
+                                    row[i], cls="badge bg-primary"), cls="mb-0"))
                             elif row.index[i] == 'Archetype' and row.Type == "Type_B":
-                                cell.add(span(row[i], cls="badge bg-info"))
+                                cell.add(
+                                    h5(span(row[i], cls="badge bg-info"), cls="mb-0"))
                             else:
                                 cell.add(span(row[i]))
 
