@@ -105,21 +105,21 @@
                     "type": "integer",
                     "description": "Coverage threshold for masking bases in the consensus.",
                     "help_text": "Any bases that are covered below 20x are masked (i.e. represented by 'N') by default in the consensus, this threshold can be changed using this parameter.",
-                    "min": 0,
+                    "minimum": 0,
                     "default": 20
                 },
                 "min_qscore": {
                     "type": "number",
                     "description": "Minimum read quality score for fastcat.",
                     "help_text": "Any reads which are below quality score of 9 are not used by default. This parameter allows you to customise that. For more information on quality scores please see this blog post: https://labs.epi2me.io/quality-scores",
-                    "min": 0,
+                    "minimum": 0,
                     "default": 9
                 },
                 "downsample": {
                     "type": "integer",
                     "description": "Number of reads to downsample to in each direction, leave blank for no downsampling.",
                     "help_text": "By default the workflow will use all high quality reads for typing. However, in experiments where you have a lot of data you might want to restrict the amount of reads processed to speed up the time to answer. Specify the number of reads you would like to downsample to here.",
-                    "min": 1
+                    "minimum": 1
                 },
                 "align_threads": {
                     "type": "number",
@@ -179,12 +179,6 @@
         }
     ],
     "properties": {
-        "process_label": {
-            "type": "string",
-            "description": "The main process label for processes to use by default",
-            "hidden": true,
-            "default": "wfflu"
-        },
         "aws_image_prefix": {
             "type": "string",
             "hidden": true

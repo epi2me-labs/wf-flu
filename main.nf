@@ -15,6 +15,8 @@ nextflow.enable.dsl = 2
 
 include { fastq_ingress } from './lib/fastqingress'
 
+OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
+
 process alignReads {
     label "wfflu"
     cpus 2
@@ -357,7 +359,7 @@ workflow pipeline {
         processed_type = processType(flu_type.typing)
 
         nextclade_prep = prepNextclade(processed_type, nextclade_data)
-
+        
         nextclade_datasets = nextclade_prep
         | map { file(it.resolve("**"), type: "file") }
         | flatten
