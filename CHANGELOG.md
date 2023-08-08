@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [unreleased]
 ### Changed
 - Adjusted size and positioning of badges to improve layout of typing table
+- Nextflow minimum version 23.04.2.
 
 ## [v0.0.10]
 ### Updated
