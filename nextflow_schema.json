@@ -16,12 +16,14 @@
             "properties": {
                 "fastq": {
                     "type": "string",
+                    "title": "FASTQ",
                     "format": "path",
                     "description": "FASTQ files to use in the analysis.",
                     "help_text": "This accepts one of three cases: (i) the path to a single FASTQ file; (ii) the path to a top-level directory containing FASTQ files; (iii) the path to a directory containing one level of sub-directories which in turn contain FASTQ files. In the first and second case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`."
                 },
                 "basecaller_cfg": {
                     "type": "string",
+                    "title": "Basecaller model configuration",
                     "description": "Name of the model that was used to basecall signal data, used to select an appropriate Medaka model.",
                     "help_text": "The basecaller configuration is used to automatically select the appropriate Medaka model. The automatic selection can be overridden with the 'medaka_variant_model' and 'medaka_consensus_model' parameters. The model list only shows models that are compatible with this workflow.",
                     "default": "dna_r10.4.1_e8.2_400bps_hac",
@@ -45,13 +47,32 @@
                 },
                 "analyse_unclassified": {
                     "type": "boolean",
+                    "title": "Analyse unclassified reads",
                     "default": false,
                     "description": "Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory.",
                     "help_text": "If selected and if the input is a multiplex directory the workflow will also process the unclassified directory."
                 }
             },
-            "required": [
-                "fastq"
+            "allOf": [
+                {
+                    "required": [
+                        "fastq"
+                    ]
+                },
+                {
+                    "oneOf": [
+                        {
+                            "required": [
+                                "basecaller_cfg"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "medaka_consensus_model"
+                            ]
+                        }
+                    ]
+                }
             ]
         },
         "samples": {
@@ -62,6 +83,7 @@
             "properties": {
                 "sample_sheet": {
                     "type": "string",
+                    "title": "Sample sheet",
                     "format": "file-path",
                     "description": "A CSV file used to map barcodes to sample aliases. The sample sheet can be provided when the input data is a directory containing sub-directories with FASTQ files.",
                     "help_text": "The sample sheet is a CSV file with, minimally, columns named `barcode` and `alias`. Extra columns are allowed. A `type` column is required for certain workflows and should have the following values; `test_sample`, `positive_control`, `negative_control`, `no_template_control`."
@@ -76,6 +98,7 @@
             "properties": {
                 "out_dir": {
                     "type": "string",
+                    "title": "Output directory",
                     "default": "output",
                     "format": "directory-path",
                     "description": "Directory for output of all workflow results."
@@ -91,18 +114,21 @@
             "properties": {
                 "reference": {
                     "type": "string",
+                    "title": "Reference FASTA",
                     "format": "file-path",
                     "description": "Enter the full path to a custom reference genome you would like to use.",
                     "help_text": "The workflow defaults to the IRMA consensus reference. This option allows you to specify a path to an alternative reference."
                 },
                 "blastdb": {
                     "type": "string",
+                    "title": "Typing BLAST Database",
                     "format": "file-path",
                     "description": "blastdb file used for typing.",
                     "help_text": "The workflow provides the INSaFLU blastdb. If you would like to supply an alternative then provide the full path to the file here."
                 },
                 "min_coverage": {
                     "type": "integer",
+                    "title": "Minimum depth coverage",
                     "description": "Coverage threshold for masking bases in the consensus.",
                     "help_text": "Any bases that are covered below 20x are masked (i.e. represented by 'N') by default in the consensus, this threshold can be changed using this parameter.",
                     "minimum": 0,
@@ -110,6 +136,7 @@
                 },
                 "min_qscore": {
                     "type": "number",
+                    "title": "Minimum read Q-score",
                     "description": "Minimum read quality score for fastcat.",
                     "help_text": "Any reads which are below quality score of 9 are not used by default. This parameter allows you to customise that. For more information on quality scores please see this blog post: https://labs.epi2me.io/quality-scores",
                     "minimum": 0,
@@ -117,12 +144,15 @@
                 },
                 "downsample": {
                     "type": "integer",
+                    "title": "Downsampling read threshold",
                     "description": "Number of reads to downsample to in each direction, leave blank for no downsampling.",
-                    "help_text": "By default the workflow will use all high quality reads for typing. However, in experiments where you have a lot of data you might want to restrict the amount of reads processed to speed up the time to answer. Specify the number of reads you would like to downsample to here.",
-                    "minimum": 1
+                    "help_text": "By default the workflow will use 130 reads (65 forward, 65 reverse) for typing. However, if you wish to change the number of reads to downsample please specify here.",
+                    "minimum": 1,
+                    "default": 130
                 },
                 "align_threads": {
                     "type": "number",
+                    "title": "Alignment threads",
                     "description": "Number of CPU threads to use per alignment task.",
                     "help_text": "The total CPU resource used by the workflow is constrained by the executor configuration.",
                     "min": 1,
@@ -130,7 +160,8 @@
                 },
                 "medaka_consensus_model": {
                     "type": "string",
-                    "description": "The name of a Medaka consensus model to use. This name will override the model automatically chosen based on the provided basecaller configuration.",
+                    "title": "Medaka consensus model",
+                    "description": "The name of a Medaka model to use. By default the workflow will select an appropriate Medaka model from the basecaller configuration provided. Entering a name here will override the automated selection and use the Medaka model named here.",
                     "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka consensus model. You can override this by providing a model with this option instead."
                 }
             }
