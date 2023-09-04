@@ -1,8 +1,9 @@
 """Create workflow report."""
 import csv
-import glob
 import json
+import os
 import re
+
 
 from dominate.tags import h5, p, span, table, tbody, td, th, thead, tr
 import ezcharts as ezc
@@ -17,12 +18,27 @@ import pandas as pd
 from .util import get_named_logger, wf_parser  # noqa: ABS101
 
 
-def typing(sample_details, args):
+def gather_sample_files(sample_details, args):
+    """Create dictionary for sample with paths to data files."""
+    sample_files = {}
+    for sample in sample_details:
+        sample_dir = os.path.join(args.data[0], sample["alias"])
+        sample_files[sample["alias"]] = {
+            "depth": os.path.join(sample_dir, "depth.txt"),
+            "type_json": os.path.join(sample_dir, "processed_type.json"),
+            "type_txt": os.path.join(sample_dir, "insaflu.typing.txt")
+        }
+
+    return sample_files
+
+
+def typing(sample_details, sample_files):
     """Get typing results and add to a table and csv for export."""
     for sample in sample_details:
-
-        typing = json.load(
-            open(f"{args.processed_type}/{sample['alias']}.typing.json"))
+        file_path = sample_files[sample["alias"]]["type_json"]
+        if not os.path.exists(file_path):
+            continue
+        typing = json.load(open(file_path))
 
         for i in ['type', 'HA', 'NA']:
             if typing[i] is not None:
@@ -60,7 +76,6 @@ def main(args):
     report = labs.LabsReport(
         "Influenza Sequencing Report", "wf-flu",
         args.params, args.versions)
-
     with open(args.metadata) as metadata:
         sample_details = sorted([
             {
@@ -69,7 +84,7 @@ def main(args):
                 'barcode': d['barcode']
             } for d in json.load(metadata)
         ], key=lambda d: d["alias"])
-
+    sample_files = gather_sample_files(sample_details, args)
     with report.add_section("Typing", "Typing"):
         p(
             """
@@ -80,7 +95,7 @@ def main(args):
             are especially useful if typing results are discordant.
             """
         )
-        typing_df = typing(sample_details, args)
+        typing_df = typing(sample_details, sample_files)
         typing_df.columns = typing_df.columns.str.title().str.replace("_", " ")
         typing_df.rename(columns={'Ha': 'HA', 'Na': 'NA'}, inplace=True)
         # add a new column 'Archetype'
@@ -117,8 +132,10 @@ def main(args):
     with report.add_section("Typing details", "Typing details"):
         tabs = Tabs()
         with tabs.add_dropdown_menu('Typing details', change_header=True):
-            for typing_file in glob.glob(f'{args.typing}/*.txt'):
-                df = pd.read_csv(typing_file, sep="\t", header=0, index_col=0)
+            for sample, files in sample_files.items():
+                if not os.path.exists(files["type_txt"]):
+                    continue
+                df = pd.read_csv(files["type_txt"], sep="\t", header=0, index_col=0)
                 df = df.drop([
                     'START',
                     'END',
@@ -129,9 +146,7 @@ def main(args):
                 df.rename(columns={'RESISTANCE': 'DETAILS'}, inplace=True)
                 df.columns = [x.title() for x in df.columns]
                 df.columns = df.columns.str.replace('_', ' ')
-                rename = typing_file.replace(
-                    '.insaflu.typing.txt', '').replace('typing/', '')
-                with tabs.add_dropdown_tab(rename):
+                with tabs.add_dropdown_tab(sample):
                     DataTable.from_pandas(df, use_index=False, export=True)
 
         p(
@@ -143,9 +158,11 @@ def main(args):
 
     with report.add_section("Coverage", "Coverage"):
         dfs = []
-        for depth in glob.glob(f'{args.coverage}/*.txt'):
-            df = pd.read_csv(depth, sep="\t", header=None, index_col=0)
-            df.columns = ['position', depth.replace('.depth.txt', '')]
+        for sample, files in sample_files.items():
+            if not os.path.exists(files["depth"]):
+                continue
+            df = pd.read_csv(files["depth"], sep="\t", header=None, index_col=0)
+            df.columns = ['position', sample]
             df.drop(columns='position', inplace=True)
             df.index.name = 'segment'
             median = df.groupby('segment').median()
@@ -202,9 +219,9 @@ def main(args):
                             export=True,
                             file_name='wf-flu-nextclade')
 
-    if args.fastqstats:
+    if args.stats:
         with report.add_section("Read summary", "Read summary"):
-            fastcat.SeqSummary(args.fastqstats)
+            fastcat.SeqSummary(args.stats)
 
     report.write(args.report)
     logger.info(f"Report written to {args.report}.")
@@ -214,22 +231,15 @@ def argparser():
     """Argument parser for entrypoint."""
     parser = wf_parser("report")
     parser.add_argument("report", help="Report output file")
-    parser.add_argument("--stats", nargs='*', help="Fastcat per-read stats file(s).")
+    parser.add_argument(
+        "--stats", nargs='*',
+        help="Fastcat per-read stats file(s).")
     parser.add_argument(
         "--metadata", default='metadata.json',
         help="sample metadata")
     parser.add_argument(
-        "--coverage", default='bed_files',
-        help="depth of coverage files")
-    parser.add_argument(
-        "--typing", default='typing_files',
-        help="abricate typing files")
-    parser.add_argument(
-        "--processed_type", default='processed_typing_files',
-        help="processed_abricate typing files")
-    parser.add_argument(
-        "--fastqstats", default='fastqstats',
-        help="fastqstats file from fastcat")
+        "--data", nargs="+", required=True,
+        help="Collected outputs per sample")
     parser.add_argument(
         "--nextclade_files", nargs='+', required=True,
         help="Outputs from nextclade")
