@@ -21,20 +21,20 @@ process alignReads {
     label "wfflu"
     cpus 2
     input:
-        tuple val(meta), path(sample_fastq), path(fastq_stats)
-        path reference
+        tuple val(meta), path("reads.fastq.gz")
+        path "reference.fasta"
     output:
-        tuple val(meta), path("${meta.alias}.bam"), path("${meta.alias}.bam.bai"), emit: alignments
-        tuple path("${meta.alias}.bamstats"), path("${meta.alias}.bam.summary"), emit: bamstats
+        tuple val(meta), path("align.bam"), path("align.bam.bai"), emit: alignments
+        tuple path("align.bamstats"), path("align.bam.summary"), emit: bamstats
     shell:
     """
-    mini_align -i ${sample_fastq} -r ${reference} -p ${meta.alias}_tmp -t ${params.align_threads} -m
+    mini_align -i reads.fastq.gz -r reference.fasta -p align_tmp -t ${params.align_threads} -m
 
     # keep only mapped reads
-    samtools view --write-index -F 4 ${meta.alias}_tmp.bam -o ${meta.alias}.bam##idx##${meta.alias}.bam.bai
+    samtools view --write-index -F 4 align_tmp.bam -o align.bam##idx##align.bam.bai
 
     # get stats from bam
-    stats_from_bam -o ${meta.alias}.bamstats -s ${meta.alias}.bam.summary -t ${params.align_threads} ${meta.alias}.bam
+    stats_from_bam -o align.bamstats -s align.bam.summary -t ${params.align_threads} align.bam
     """
 }
 
@@ -42,11 +42,11 @@ process coverageCalc {
       label "wfflu"
       cpus 2
       input:
-          tuple val(meta), path(bam), path(bai)
+          tuple val(meta), path("align.bam"), path("align.bam.bai")
       output:
-          tuple val(meta.alias), val(meta), path("${meta.alias}.depth.txt")
+          tuple val(meta), path("depth.txt")
       """
-      samtools depth -aa ${bam} -Q 20 -q 1 > ${meta.alias}.depth.txt
+      samtools depth -aa align.bam -Q 20 -q 1 > depth.txt
       """
 
 }
@@ -55,17 +55,17 @@ process downSample {
     label 'wfflu'
     cpus 2
     input:
-        tuple val(meta), path(bam), path(bai)
-        path reference
+        tuple val(meta), path("align.bam"), path("align.bam.bai")
+        path "reference.fasta"
     output:
-        tuple val(meta), path("${meta.alias}_all_merged.sorted.bam"), path("${meta.alias}_all_merged.sorted.bam.bai"), emit: alignments
+        tuple val(meta), path("all_merged.sorted.bam"), path("all_merged.sorted.bam.bai"), emit: alignments
     """
     # split bam
-    header_count=`samtools view -H ${meta.alias}.bam | wc -l`
+    header_count=`samtools view -H align.bam | wc -l`
     lines=\$(( ${params.downsample} + \$header_count + 1 ))
 
     # get the regions from the fasta
-    awk '/^>/ {if (seqlen){print seqlen}; print ;seqlen=0;next; } { seqlen += length(\$0)}END{print seqlen}' ${reference} | tr "\\n" "," | tr '>' '\\n' | sed 's/,\$//g' | grep ',' > regions.txt
+    awk '/^>/ {if (seqlen){print seqlen}; print ;seqlen=0;next; } { seqlen += length(\$0)}END{print seqlen}' reference.fasta | tr "\\n" "," | tr '>' '\\n' | sed 's/,\$//g' | grep ',' > regions.txt
 
     # for every region we're going to downsample separatley
 
@@ -80,36 +80,36 @@ process downSample {
       upper=`echo \$((\${length}+(\${length}*10/100)))`
       lower=`echo \$((\${length}-(\${length}*10/100)))`
 
-      samtools view -H ${bam} \${region} > head.sam
+      samtools view -H align.bam \${region} > head.sam
 
       # filter reads in region and covering region
 
-      samtools view ${bam} \${region} | awk -v upper="\${upper}" -v lower="\${lower}" '{if(length(\$10) < upper && length(\$10) > lower) print \$0}' > ${meta.alias}_\${region}.tmp.sam;
+      samtools view align.bam \${region} | awk -v upper="\${upper}" -v lower="\${lower}" '{if(length(\$10) < upper && length(\$10) > lower) print \$0}' > \${region}.tmp.sam;
 
       # ignore regions with no reads
-      count=`wc -l < ${meta.alias}_\${region}.tmp.sam`
+      count=`wc -l < \${region}.tmp.sam`
 
       if [ "\${count}" -eq "0" ];
       then
         echo "no reads in \${region} so continuing"
-        cat head.sam | samtools view -bh > ${meta.alias}_\${region}_all.bam
+        cat head.sam | samtools view -bh > \${region}_all.bam
         continue;
       fi
 
-      cat head.sam ${meta.alias}_\${region}.tmp.sam | samtools view -bh > ${meta.alias}_\${region}.bam
+      cat head.sam \${region}.tmp.sam | samtools view -bh > \${region}.bam
 
-      samtools view -h -F16 ${meta.alias}_\${region}.bam > ${meta.alias}_\${region}_fwd.sam;
-      head -\${lines} ${meta.alias}_\${region}_fwd.sam | samtools view -bh - > ${meta.alias}_\${region}_fwd.bam;
+      samtools view -h -F16 \${region}.bam > \${region}_fwd.sam;
+      head -\${lines} \${region}_fwd.sam | samtools view -bh - > \${region}_fwd.bam;
 
-      samtools view -h -f16 ${meta.alias}_\${region}.bam > ${meta.alias}_\${region}_rev.sam;
-      head -\${lines} ${meta.alias}_\${region}_rev.sam | samtools view -bh - > ${meta.alias}_\${region}_rev.bam;
-      samtools merge ${meta.alias}_\${region}_all.bam ${meta.alias}_\${region}_fwd.bam ${meta.alias}_\${region}_rev.bam;
+      samtools view -h -f16 \${region}.bam > \${region}_rev.sam;
+      head -\${lines} \${region}_rev.sam | samtools view -bh - > \${region}_rev.bam;
+      samtools merge \${region}_all.bam \${region}_fwd.bam \${region}_rev.bam;
 
     done < regions.txt
 
-    samtools merge ${meta.alias}_all_merged.bam *_all.bam
-    samtools sort ${meta.alias}_all_merged.bam > ${meta.alias}_all_merged.sorted.bam
-    samtools index ${meta.alias}_all_merged.sorted.bam
+    samtools merge all_merged.bam *_all.bam
+    samtools sort all_merged.bam > all_merged.sorted.bam
+    samtools index all_merged.sorted.bam
     echo "done"
 
     """
@@ -134,17 +134,17 @@ process medakaVariants {
     label "medaka"
     cpus 2
     input:
-        tuple val(meta), path(bam), path(bai), val(medaka_model)
-        path reference
+        tuple val(meta), path("downsample.bam"), path("downsample.bam.bai"), val(medaka_model)
+        path("reference.fasta")
     output:
-        tuple val(meta.alias), val(meta), path("${meta.alias}.annotate.filtered.vcf")
+        tuple val(meta), path("variants.annotated.filtered.vcf")
     script:
     """
-    medaka consensus ${bam} ${meta.alias}.hdf --model ${medaka_model}
-    medaka variant --gvcf ${reference} ${meta.alias}.hdf ${meta.alias}.vcf --verbose
-    medaka tools annotate --debug --pad 25 ${meta.alias}.vcf ${reference} ${bam} ${meta.alias}.annotate.vcf
+    medaka consensus downsample.bam consensus.hdf --model "${medaka_model}"
+    medaka variant --gvcf reference.fasta consensus.hdf variants.vcf --verbose
+    medaka tools annotate --debug --pad 25 variants.vcf reference.fasta downsample.bam variants.annotated.vcf
 
-    bcftools filter -e "ALT='.'" ${meta.alias}.annotate.vcf | bcftools filter -o ${meta.alias}.annotate.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
+    bcftools filter -e "ALT='.'" variants.annotated.vcf | bcftools filter -o variants.annotated.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
     """
 }
 
@@ -153,16 +153,16 @@ process makeConsensus {
     label "wfflu"
     cpus 2
     input:
-        tuple val(meta), path(vcf), path(depth)
-        path reference
+        tuple val(meta), path("variants.annotated.filtered.vcf"), path("depth.txt")
+        path "reference.fasta"
     output:
-        tuple val(meta), path("${meta.alias}.draft.consensus.fasta")
+        tuple val(meta), path("draft.consensus.fasta")
     """
-    awk '{if (\$3<${params.min_coverage}) print \$1"\t"\$2+1}' ${depth} > mask.regions
-    bgzip ${vcf}
-    tabix ${vcf}.gz
+    awk '{if (\$3<${params.min_coverage}) print \$1"\t"\$2+1}' depth.txt > mask.regions
+    bgzip variants.annotated.filtered.vcf
+    tabix variants.annotated.filtered.vcf.gz
 
-    bcftools consensus --mask mask.regions  --mark-del '-' --mark-ins lc --fasta-ref ${reference} -o ${meta.alias}.draft.consensus.fasta ${vcf}.gz
+    bcftools consensus --mask mask.regions  --mark-del '-' --mark-ins lc --fasta-ref reference.fasta -o draft.consensus.fasta variants.annotated.filtered.vcf.gz
     """
 }
 
@@ -170,14 +170,14 @@ process typeFlu {
     label "wfflutyping"
     cpus 2
     input:
-        tuple val(meta), path(consensus)
-        path(blastdb)
+        tuple val(meta), path("consensus.fasta")
+        path("blast_db")
     output:
-        tuple val(meta), path("${meta.alias}.insaflu.typing.txt"), path(consensus), emit: typing
+        tuple val(meta), path("insaflu.typing.txt"), emit: typing
         path "abricate.version", emit: version
     """
     abricate --version | sed 's/ /,/' > abricate.version
-    abricate --datadir ${blastdb} --db insaflu -minid 70 -mincov 60 --quiet ${consensus} 1> ${meta.alias}.insaflu.typing.txt
+    abricate --datadir blast_db --db insaflu -minid 70 -mincov 60 --quiet consensus.fasta 1> insaflu.typing.txt
     """
 }
 
@@ -185,12 +185,12 @@ process processType {
     label "wfflu"
     cpus 1
     input:
-        tuple val(meta), path(typing), path(consensus)
+        tuple val(meta), path("insaflu.typing.txt")
     output:
-        tuple val(meta), path("${meta.alias}.typing.json"), path(consensus)
+        tuple val(meta), path("processed_type.json")
     script:
     """
-    workflow-glue process_abricate --typing ${typing} --output ${meta.alias}.typing.json
+    workflow-glue process_abricate --typing insaflu.typing.txt --output processed_type.json
     """
 }
 
@@ -198,18 +198,19 @@ process processType {
 process prepNextclade {
     label "wfflu"
     input:
-        tuple val(meta), path(typing_json), path(consensus)
-        path nextclade_data
+        tuple val(meta), path("typing.json"), path("consensus.fasta")
+        path "nextclade_data"
     output:
         path "datasets", optional: true
     script:
+    String alias = meta.alias
     """
     mkdir datasets
     workflow-glue nextclade_helper \
-        --typing ${typing_json} \
-        --nextclade_datasets ${nextclade_data} \
-        --consensus ${consensus} \
-        --sample_alias ${meta.alias}
+        --typing typing.json \
+        --nextclade_datasets "nextclade_data" \
+        --consensus "consensus.fasta" \
+        --sample_alias "${alias}"
     
     if [ -z "\$(ls -A datasets)" ]; then
         rm -r datasets
@@ -267,18 +268,26 @@ process getParams {
     """
 }
 
+process collectFilesInDir {
+    label "wfflu"
+    cpus 1
+    input: tuple val(meta), path("staging_dir/*"), val(dirname)
+    output: tuple val(meta), path(dirname)
+    script:
+    """
+    mv staging_dir $dirname
+    """
+}
 
 process makeReport {
     label "wfflu"
     input:
         val metadata
-        path "versions/*"
-        path "coverage/*"
-        path "typing/*"
-        path "processed_type/*"
-        path "fastqstats/per-file-stats.tsv"
+        path "fastcat_stats"
+        path "data/*"
         path "nextclade/*"
         path nextclade_datasets
+        path "versions/*"
         path "params.json"
     output:
         tuple path("wf-flu-*.html"), path("wf-flu-results.csv")
@@ -287,35 +296,39 @@ process makeReport {
         def metadata = new JsonBuilder(metadata).toPrettyString()
     """
     echo '${metadata}' > metadata.json
-    workflow-glue report $report_name \
+    workflow-glue report "${report_name}"\
+        --data data \
+        --stats fastcat_stats \
         --versions versions \
-        --coverage coverage \
-        --typing typing \
-        --processed_type processed_type \
-        --fastqstats fastqstats/per-file-stats.tsv \
-        --nextclade_files nextclade/* \
-        --nextclade_datasets ${nextclade_datasets} \
         --params params.json \
+        --nextclade_files nextclade/* \
+        --nextclade_datasets "${nextclade_datasets}" \
         --metadata metadata.json
     """
 }
 
 
-// See https://github.com/nextflow-io/nextflow/issues/1636
-// This is the only way to publish files from a workflow whilst
-// decoupling the publish from the process steps.
+// See https://github.com/nextflow-io/nextflow/issues/1636. This is the only way to
+// publish files from a workflow whilst decoupling the publish from the process steps.
+// The process takes a tuple containing the filename and the name of a sub-directory to
+// put the file into. If the latter is `null`, puts it into the top-level directory.
 process output {
     // publish inputs to output directory
     label "wfflu"
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "*"
+    cpus 1
+    publishDir (
+        params.out_dir,
+        mode: "copy",
+        saveAs: { dirname ? "$dirname/$fname" : fname }
+    )
     input:
-        path fname
+        tuple path(fname), val(dirname)
     output:
         path fname
     """
-    echo "Writing output files."
     """
 }
+
 
 
 // workflow module
@@ -326,7 +339,7 @@ workflow pipeline {
         blastdb
         nextclade_data
     main:
-        alignment = alignReads(samples, reference)
+        alignment = alignReads(samples.map{ meta, reads, stats -> [ meta,reads ] }, reference)
         coverage = coverageCalc(alignment.alignments)
 
         // do crude downsampling
@@ -351,14 +364,16 @@ workflow pipeline {
 
         variants = medakaVariants(bams_for_calling, reference)
 
-        for_draft = variants.join(coverage.map{it -> return tuple(it[0], it[2])})
-        
-        draft = makeConsensus(for_draft.map {it -> tuple(it[1..3])}, reference)
+        for_draft = variants.join(coverage)
+
+        draft = makeConsensus(for_draft, reference)
         flu_type = typeFlu(draft, blastdb)
 
         processed_type = processType(flu_type.typing)
 
-        nextclade_prep = prepNextclade(processed_type, nextclade_data)
+        nextclade_prep_input = processed_type.join(draft, remainder: true)
+
+        nextclade_prep = prepNextclade(nextclade_prep_input, nextclade_data)
         
         nextclade_datasets = nextclade_prep
         | map { file(it.resolve("**"), type: "file") }
@@ -369,35 +384,62 @@ workflow pipeline {
         nextclade_result = nextclade(nextclade_datasets)
 
         software_versions = getVersions()
-        software_versions = software_versions.mix(flu_type.version.first())
+        software_versions = software_versions.mix(flu_type.version.first()) | collectFile()
         workflow_params = getParams()
 
-        output_alignments = alignment.alignments.map{ it -> return tuple(it[1], it[2]) }
+        // output_alignments = alignment.alignments.map{ it -> return tuple(it[1], it[2]) }
+
+        // get all the per sample results together
+        ch_per_sample_results = samples
+        | join(coverage)
+        | join(flu_type.typing) 
+        | join(processed_type)
+
+        // collect results into a directory for the sample directory to avoid collisions
+        ch_results_for_report = ch_per_sample_results
+        | map {
+            meta = it[0]
+            rest = it[1..-1]
+            [meta, rest, meta.alias]
+        }
+        | collectFilesInDir
+        | map { meta, dirname -> dirname }
+
+
 
         report = makeReport(
             samples.map{it -> it[0]}.toList(),
-            software_versions.collect(),
-            coverage.map{it -> it[2] }.collect(),
-            flu_type.typing.map{it -> it[1] }.collect(),
-            processed_type.map{it -> it[1] }.collect(),
             samples | map { it[2].resolve("per-read-stats.tsv") } | collectFile(keepHeader: true),
+            ch_results_for_report | collect,
             nextclade_result.map{it -> it[1]}.collect(),
             nextclade_data,
+            software_versions.collect(),
             workflow_params
         )
 
-    emit:
-        results = output_alignments.concat(
-            report.collect(),
-            variants.map{it-> it[2]},
-            draft.map{it -> it[1]},
-            flu_type.typing.map{it -> it[1]},
-            coverage.map{it -> it[2]}
+        // create channel with files to publish; the channel will have the shape `[file,
+        // name of sub-dir to be published in]`.
+
+        ch_to_publish = Channel.empty()
+        | mix(
+            software_versions | map { [it, null] },
+            workflow_params | map { [it, null] },
+            report | map { [it[0] , null] },
+            report | map { [it[1], null] },
+            alignment.alignments
+            | map { meta, bam, bai -> [bam, "$meta.alias/alignments"] },
+            variants
+            | map { meta, vcf -> [vcf, "$meta.alias/variants"]},
+            coverage
+            | map { meta, depth -> [depth, "$meta.alias/coverage"]},
+            draft
+            | map { meta, fa -> [fa, "$meta.alias/consensus"]},
+            flu_type.typing
+            | map { meta, json -> [json, "$meta.alias/typing"]}
         )
-        // TODO: use something more useful as telemetry
-        telemetry = workflow_params
 
-
+    emit: 
+        results = ch_to_publish
 }
 
 
@@ -436,7 +478,10 @@ workflow {
     nextclade_data = projectDir.resolve("./data/nextclade.csv").toString()
 
     pipeline(samples, params._reference, params._blastdb, nextclade_data)
-    output(pipeline.out.results)
+    pipeline.out.results
+    | toList
+    | flatMap
+    | output
 }
 
 if (params.disable_ping == false) {
