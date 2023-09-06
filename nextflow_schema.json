@@ -151,7 +151,7 @@
                     "default": 130
                 },
                 "align_threads": {
-                    "type": "number",
+                    "type": "integer",
                     "title": "Alignment threads",
                     "description": "Number of CPU threads to use per alignment task.",
                     "help_text": "The total CPU resource used by the workflow is constrained by the executor configuration.",
@@ -179,12 +179,14 @@
                 },
                 "help": {
                     "type": "boolean",
+                    "default": false,
                     "description": "Display help text.",
                     "fa_icon": "fas fa-question-circle",
                     "hidden": true
                 },
                 "version": {
                     "type": "boolean",
+                    "default": false,
                     "description": "Display version and exit.",
                     "fa_icon": "fas fa-question-circle",
                     "hidden": true
