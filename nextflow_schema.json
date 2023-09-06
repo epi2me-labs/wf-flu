@@ -155,7 +155,7 @@
                     "title": "Alignment threads",
                     "description": "Number of CPU threads to use per alignment task.",
                     "help_text": "The total CPU resource used by the workflow is constrained by the executor configuration.",
-                    "min": 1,
+                    "minimum": 1,
                     "default": 4
                 },
                 "medaka_consensus_model": {
