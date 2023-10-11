@@ -13,7 +13,7 @@
 import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
-include { fastq_ingress } from './lib/fastqingress'
+include { fastq_ingress } from './lib/ingress'
 
 OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
 
@@ -409,7 +409,7 @@ workflow pipeline {
 
         report = makeReport(
             samples.map{it -> it[0]}.toList(),
-            samples | map { it[2].resolve("per-read-stats.tsv") } | collectFile(keepHeader: true),
+            samples | map { it[2].resolve("per-read-stats.tsv.gz") } | collectFile(keepHeader: true),
             ch_results_for_report | collect,
             nextclade_result.map{it -> it[1]}.collect(),
             nextclade_data,
@@ -447,13 +447,11 @@ workflow pipeline {
 WorkflowMain.initialise(workflow, params, log)
 workflow {
 
-    if (params.disable_ping == false) {
-        Pinguscript.ping_post(workflow, "start", "none", params.out_dir, params)
-    }
+    Pinguscript.ping_start(nextflow, workflow, params)
 
     samples = fastq_ingress([
     "input": params.fastq,
-    "fastcat_stats": true,
+    "stats": true,
     "sample_sheet": params.sample_sheet])
 
 
@@ -484,12 +482,9 @@ workflow {
     | output
 }
 
-if (params.disable_ping == false) {
-    workflow.onComplete {
-        Pinguscript.ping_post(workflow, "end", "none", params.out_dir, params)
-    }
-
-    workflow.onError {
-        Pinguscript.ping_post(workflow, "error", "$workflow.errorMessage", params.out_dir, params)
-    }
+workflow.onComplete {
+    Pinguscript.ping_complete(nextflow, workflow, params)
+}
+workflow.onError {
+    Pinguscript.ping_error(nextflow, workflow, params)
 }
