@@ -436,7 +436,7 @@ process move_or_compress_fq_file {
 
 
 process fastcat {
-    label "fastq_ingress"
+    label "ingress"
     label "wf_common"
     cpus 3
     input:
