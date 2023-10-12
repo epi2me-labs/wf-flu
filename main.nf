@@ -409,7 +409,7 @@ workflow pipeline {
 
         report = makeReport(
             samples.map{it -> it[0]}.toList(),
-            samples | map { it[2].resolve("per-read-stats.tsv.gz") } | collectFile(keepHeader: true),
+            samples.map{it -> it[2].resolve("per-read-stats.tsv.gz")}.toList(),
             ch_results_for_report | collect,
             nextclade_result.map{it -> it[1]}.collect(),
             nextclade_data,
