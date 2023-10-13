@@ -280,7 +280,7 @@ process collectFilesInDir {
 }
 
 process makeReport {
-    label "wfflu"
+    label "wf_common"
     input:
         val metadata
         path "fastcat_stats/?.gz"
