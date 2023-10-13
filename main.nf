@@ -298,7 +298,7 @@ process makeReport {
     echo '${metadata}' > metadata.json
     workflow-glue report "${report_name}"\
         --data data \
-        --stats fastcat_stats \
+        --stats fastcat_stats/* \
         --versions versions \
         --params params.json \
         --nextclade_files nextclade/* \
