@@ -283,7 +283,7 @@ process makeReport {
     label "wfflu"
     input:
         val metadata
-        path "fastcat_stats"
+        path "fastcat_stats/?.gz"
         path "data/*"
         path "nextclade/*"
         path nextclade_datasets
