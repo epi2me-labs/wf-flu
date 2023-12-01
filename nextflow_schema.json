@@ -2,11 +2,24 @@
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
     "title": "epi2me-labs/wf-flu",
+    "workflow_title": "Influenza Typing Workflow",
     "description": "Influenza A&B typing and analysis from Nanopore data.",
     "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-flu/wf-flu-demo.tar.gz",
     "aws_demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-flu/wf-flu-demo/aws.nextflow.config",
     "url": "https://github.com/epi2me-labs/wf-flu",
     "type": "object",
+    "resources": {
+        "recommended": {
+            "cpus": 32,
+            "memory": "32GB"
+        },
+        "minimum": {
+            "cpus": 4,
+            "memory": "2GB"
+        },
+        "run_time": "30 minutes when number of cores >= samples",
+        "arm_support": false
+    },
     "definitions": {
         "input": {
             "title": "Input Options",
@@ -149,14 +162,6 @@
                     "help_text": "By default the workflow will use 130 reads (65 forward, 65 reverse) for typing. However, if you wish to change the number of reads to downsample please specify here.",
                     "minimum": 1,
                     "default": 130
-                },
-                "align_threads": {
-                    "type": "integer",
-                    "title": "Alignment threads",
-                    "description": "Number of CPU threads to use per alignment task.",
-                    "help_text": "The total CPU resource used by the workflow is constrained by the executor configuration.",
-                    "minimum": 1,
-                    "default": 4
                 },
                 "medaka_consensus_model": {
                     "type": "string",

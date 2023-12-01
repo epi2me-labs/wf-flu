@@ -28,19 +28,19 @@ process alignReads {
         tuple path("align.bamstats"), path("align.bam.summary"), emit: bamstats
     shell:
     """
-    mini_align -i reads.fastq.gz -r reference.fasta -p align_tmp -t ${params.align_threads} -m
+    mini_align -i reads.fastq.gz -r reference.fasta -p align_tmp -t 2 -m
 
     # keep only mapped reads
     samtools view --write-index -F 4 align_tmp.bam -o align.bam##idx##align.bam.bai
 
     # get stats from bam
-    stats_from_bam -o align.bamstats -s align.bam.summary -t ${params.align_threads} align.bam
+    stats_from_bam -o align.bamstats -s align.bam.summary -t 2 align.bam
     """
 }
 
 process coverageCalc {
       label "wfflu"
-      cpus 2
+      cpus 1
       input:
           tuple val(meta), path("align.bam"), path("align.bam.bai")
       output:
@@ -53,7 +53,7 @@ process coverageCalc {
 
 process downSample {
     label 'wfflu'
-    cpus 2
+    cpus 1
     input:
         tuple val(meta), path("align.bam"), path("align.bam.bai")
         path "reference.fasta"
@@ -132,7 +132,7 @@ process lookup_medaka_consensus_model {
 
 process medakaVariants {
     label "medaka"
-    cpus 2
+    cpus 1
     input:
         tuple val(meta), path("downsample.bam"), path("downsample.bam.bai"), val(medaka_model)
         path("reference.fasta")
@@ -151,7 +151,7 @@ process medakaVariants {
 
 process makeConsensus {
     label "wfflu"
-    cpus 2
+    cpus 1
     input:
         tuple val(meta), path("variants.annotated.filtered.vcf"), path("depth.txt")
         path "reference.fasta"
@@ -168,7 +168,7 @@ process makeConsensus {
 
 process typeFlu {
     label "wfflutyping"
-    cpus 2
+    cpus 1
     input:
         tuple val(meta), path("consensus.fasta")
         path("blast_db")
@@ -197,6 +197,7 @@ process processType {
 
 process prepNextclade {
     label "wfflu"
+    cpus 1
     input:
         tuple val(meta), path("typing.json"), path("consensus.fasta")
         path "nextclade_data"
@@ -221,6 +222,7 @@ process prepNextclade {
 
 process nextclade {
     label "nextclade"
+    cpus 1
     input:
         tuple val(dataset), path(files)
     output:
@@ -281,6 +283,7 @@ process collectFilesInDir {
 
 process makeReport {
     label "wf_common"
+    cpus 1
     input:
         val metadata
         path "fastcat_stats/?.gz"
