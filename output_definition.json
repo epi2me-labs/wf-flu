@@ -1,0 +1,60 @@
+{
+  "files": {
+    "workflow-report": {
+      "filepath": "./wf-flu-report.html",
+      "title": "Workflow report",
+      "description": "Easy-to-use HTML report for all samples in the run.",
+      "mime-type": "text/html",
+      "optional": false,
+      "type": "aggregated"
+    },
+    "typing-results": {
+      "filepath": "./wf-flu-results.csv",
+      "title": "Typing results",
+      "description": "Typing results in CSV format for onward processing.",
+      "mime-type": "text/txt",
+      "optional": false,
+      "type": "aggregated"
+    },
+    "alignment": {
+      "filepath": "./{{ alias }}/alignments/align.bam",
+      "title": "Read alignments",
+      "description": "Read allignments per sample in BAM format.",
+      "mime-type": "application/x-gzip",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "draft_consensus_fasta" : {
+      "filepath": "./{{ alias }}/consensus/draft.consensus.fasta",
+      "title": "Draft consensus FASTA",
+      "description": "Draft consensus sequence.",
+      "mime-type": "text/fastq",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "depth": {
+      "filepath": "./{{ alias }}/coverage/depth.txt",
+      "title": "Read depth",
+      "description": "Read depth per base.",
+      "mime-type": "text/tab-separated-values",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "typing": {
+      "filepath": "./{{ alias }}/typing/insaflu.typing.txt",
+      "title": "Typing results",
+      "description": "Insaflu abricate typing results.",
+      "mime-type": "text/tab-separated-values",
+      "optional": false,
+      "type": "per-sample"
+    },
+    "variants-file" : {
+      "filepath": "./{{ alias }}/variants/variants.annotated.filtered.vcf",
+      "title": "Variants file",
+      "description": "Called variants in VCF format.",
+      "mime-type": "text/tab-separated-values",
+      "optional": false,
+      "type": "per-sample"
+    }
+  }
+}

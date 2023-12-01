@@ -1,33 +1,9 @@
-## Introduction
-
-Influenza is a single-stranded RNA virus and contains a 13.5-14.5kb genome which is split into 8 segments encoding 10-14 proteins (dependent on strain).
-
-The virus is classified using two proteins found on the outer surface of the viral capsid. You’ve probably heard of H1N1 Influenza for example. The H represents hemagglutinin and the N is neuraminidase.
-
-The Oxford Nanopore Technologies protocol listed [here](https://community.nanoporetech.com/docs/prepare/library_prep_protocols/ligation-sequencing-influenza-whole-genome) amplifies segments of the Influenza Type A and Type B genomes. Using this analysis workflow, users can determine the most likely strain of Influenza to which the sample being sequenced belongs.
-
-### Data Analysis
-
-Workflow steps:
-1. Concatenate reads & filter out short reads < 200 bases long
-2. Align reads to reference (minimap2)
-3. Coverage calculations (samtools)
-4. Call variants with medaka
-5. Make a (coverage masked) consensus with bcftools
-6. Type with abricate
-
-#### Downsampling
-
-Downsampling is optional
-
-For every segment in the reference genome:
-1. Get the length
-2. Work out +/- 10%
-3. Filter reads within that segment and within +/- 10% of segment length
-
-#### Typing
-
-Typing is carried out using [abricate](https://github.com/tseemann/abricate) using the insaflu database containing the following sequences:
+1. Concatenate reads and filter out short reads < 200 bases long
+2. Align reads to reference with [minimap2](https://github.com/lh3/minimap2)
+3. Coverage calculations with [samtools](http://www.htslib.org/))
+4. Call variants using [medaka](https://github.com/nanoporetech/medaka) ([medaka blog](https://labs.epi2me.io/notebooks/Introduction_to_how_ONT's_medaka_works.html))
+5. Make a (coverage masked) consensus with [bcftools](https://samtools.github.io/bcftools/bcftools.html)
+6. Typing using [abricate](https://github.com/tseemann/abricate) with the [insaflu](https://insaflu.insa.pt/) database, containing the following sequences:
 
 | Database|Gene|Accession|Details|
 |----|----|----|----|
@@ -65,3 +41,5 @@ Typing is carried out using [abricate](https://github.com/tseemann/abricate) usi
 |insaflu|HA|M58428|Victoria M58428.1 Influenza B/Victoria/2/87, hemagglutinin (seg 4), RNA
 |insaflu|NA|EU429793|N4 EU429793.1 Influenza A virus (A/turkey/Ontario/6118/1968(H8N4)) segment 6 neuraminidase (NA) mRNA, complete cds
 |insaflu|NA|EU429795|N6 EU429795.1 Influenza A virus (A/duck/England/1/1956(H11N6)) segment 6 neuraminidase (NA) mRNA, complete cds
+
+7. Clade and lineage assignment using [nextclade](https://clades.nextstrain.org/)

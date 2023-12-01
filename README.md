@@ -1,8 +1,6 @@
-# wf-flu | Influenza Typing Workflow
+# Influenza Typing Workflow
 
-This repository contains a [nextflow](https://www.nextflow.io/) workflow
-that takes targeted ONT Influenza sequencing data to produce typing information.
-
+Influenza A&B typing and analysis from Nanopore data.
 
 
 
@@ -12,30 +10,132 @@ Influenza is a single-stranded RNA virus and contains a 13.5-14.5kb genome which
 
 The virus is classified using two proteins found on the outer surface of the viral capsid. You’ve probably heard of H1N1 Influenza for example. The H represents hemagglutinin and the N is neuraminidase.
 
-The Oxford Nanopore Technologies protocol listed [here](https://community.nanoporetech.com/docs/prepare/library_prep_protocols/ligation-sequencing-influenza-whole-genome) amplifies segments of the Influenza Type A and Type B genomes. Using this analysis workflow, users can determine the most likely strain of Influenza to which the sample being sequenced belongs.
+This analysis workflow can be used with Oxford Nanopore Technologies sequencing data from amplified segments of the Influenza Type A and Type B genomes, to determine the most likely strain of Influenza to which the sequenced sample belongs.
 
-### Data Analysis
 
-Workflow steps:
-1. Concatenate reads & filter out short reads < 200 bases long
-2. Align reads to reference (minimap2)
-3. Coverage calculations (samtools)
-4. Call variants with medaka
-5. Make a (coverage masked) consensus with bcftools
-6. Type with abricate
 
-#### Downsampling
 
-Downsampling is optional
+## Compute requirements
 
-For every segment in the reference genome:
-1. Get the length
-2. Work out +/- 10%
-3. Filter reads within that segment and within +/- 10% of segment length
+Recommended requirements:
 
-#### Typing
++ CPUs = 32
++ memory = 32GB
 
-Typing is carried out using [abricate](https://github.com/tseemann/abricate) using the insaflu database containing the following sequences:
+Minimum requirement:
+
++ CPUs = 4
++ memory = 2GB
+
+Approximate run time: 30 minutes when number of cores >= samples
+
+ARM processor support: False
+
+
+
+
+## Install and run
+
+These are instructions to install and run the workflow on command line. You can also access the workflow via the [EPI2ME application](https://labs.epi2me.io/downloads/).
+
+The workflow uses [nextflow](https://www.nextflow.io/) to manage compute and software resources, therefore nextflow will need to be installed before attempting to run the workflow.
+
+The workflow can currently be run using either [Docker](https://www.docker.com/products/docker-desktop) or
+[singularity](https://docs.sylabs.io/guides/3.0/user-guide/index.html) to provide isolation of
+the required software. Both methods are automated out-of-the-box provided 
+either docker or singularity is installed. This is controlled by the [`-profile`](https://www.nextflow.io/docs/latest/config.html#config-profiles) parameter as exemplified below.
+
+It is not required to clone or download the git repository in order to run the workflow.
+More information on running EPI2ME workflows can be found on our [website](https://labs.epi2me.io/wfindex).
+
+The following command can be used to obtain the workflow. This will pull the repository in to the assets folder of nextflow and provide a list of all parameters available for the workflow as well as an example command:
+
+```
+nextflow run epi2me-labs/wf-flu -help
+```
+A demo dataset is provided for testing of the workflow. It can be downloaded using:
+```
+wget https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-flu/wf-flu-demo.tar.gz
+tar -xzvf wf-flu-demo.tar.gz
+```
+The workflow can be run with the demo data using:
+```
+nextflow run epi2me-labs/wf-flu \
+--fastq test_data/fastq -profile standard
+```
+For further information about running a workflow on the cmd line see https://labs.epi2me.io/wfquickstart/
+
+
+
+
+
+## Related protocols
+
+This workflow is designed to take input sequences that have been produced from [Oxford Nanopore Technologies](https://nanoporetech.com/) devices using this protocol: (https://community.nanoporetech.com/docs/prepare/library_prep_protocols/ligation-sequencing-influenza-whole-genome)
+Samples not prepared with this protocol may work sub-optimally or fail to complete succesfully.
+
+
+
+
+## Inputs
+
+### Input Options
+
+| Nextflow parameter name  | Type | Description | Help | Default |
+|--------------------------|------|-------------|------|---------|
+| fastq | string | FASTQ files to use in the analysis. | This accepts one of three cases: (i) the path to a single FASTQ file; (ii) the path to a top-level directory containing FASTQ files; (iii) the path to a directory containing one level of sub-directories which in turn contain FASTQ files. In the first and second case, a sample name can be supplied with `--sample`. In the last case, the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`. |  |
+| basecaller_cfg | string | Name of the model that was used to basecall signal data, used to select an appropriate Medaka model. | The basecaller configuration is used to automatically select the appropriate Medaka model. The automatic selection can be overridden with the 'medaka_variant_model' and 'medaka_consensus_model' parameters. The model list only shows models that are compatible with this workflow. | dna_r10.4.1_e8.2_400bps_hac |
+| analyse_unclassified | boolean | Analyse unclassified reads from input directory. By default the workflow will not process reads in the unclassified directory. | If selected and if the input is a multiplex directory the workflow will also process the unclassified directory. | False |
+
+
+### Advanced Options
+
+| Nextflow parameter name  | Type | Description | Help | Default |
+|--------------------------|------|-------------|------|---------|
+| reference | string | Enter the full path to a custom reference genome you would like to use. | The workflow defaults to the IRMA consensus reference. This option allows you to specify a path to an alternative reference. |  |
+| blastdb | string | blastdb file used for typing. | The workflow provides the INSaFLU blastdb. If you would like to supply an alternative then provide the full path to the file here. |  |
+| min_coverage | integer | Coverage threshold for masking bases in the consensus. | Any bases that are covered below 20x are masked (i.e. represented by 'N') by default in the consensus, this threshold can be changed using this parameter. | 20 |
+| min_qscore | number | Minimum read quality score for fastcat. | Any reads which are below quality score of 9 are not used by default. This parameter allows you to customise that. For more information on quality scores please see this blog post: https://labs.epi2me.io/quality-scores | 9 |
+| downsample | integer | Number of reads to downsample to in each direction, leave blank for no downsampling. | By default the workflow will use 130 reads (65 forward, 65 reverse) for typing. However, if you wish to change the number of reads to downsample please specify here. | 130 |
+| medaka_consensus_model | string | The name of a Medaka model to use. By default the workflow will select an appropriate Medaka model from the basecaller configuration provided. Entering a name here will override the automated selection and use the Medaka model named here. | The workflow will attempt to map the basecalling model used to a suitable Medaka consensus model. You can override this by providing a model with this option instead. |  |
+
+
+### Miscellaneous Options
+
+| Nextflow parameter name  | Type | Description | Help | Default |
+|--------------------------|------|-------------|------|---------|
+| disable_ping | boolean | Enable to prevent sending a workflow ping. |  | False |
+
+
+
+
+
+
+## Outputs
+
+Outputs files may be aggregated including information for all             samples or provided per sample. Per sample files             will be prefixed with respective aliases and represented             below as {{ alias }}.
+
+| Title | File path | Description | Per sample or aggregated |
+|-------|-----------|-------------|--------------------------|
+| Workflow report | ./wf-flu-report.html | Easy-to-use HTML report for all samples in the run. | aggregated |
+| Typing results | ./wf-flu-results.csv | Typing results in CSV format for onward processing. | aggregated |
+| Read alignments | ./{{ alias }}/alignments/align.bam | Read allignments per sample in BAM format. | per-sample |
+| Draft consensus FASTA | ./{{ alias }}/consensus/draft.consensus.fasta | Draft consensus sequence. | per-sample |
+| Read depth | ./{{ alias }}/coverage/depth.txt | Read depth per base. | per-sample |
+| Typing results | ./{{ alias }}/typing/insaflu.typing.txt | Insaflu abricate typing results. | per-sample |
+| Variants file | ./{{ alias }}/variants/variants.annotated.filtered.vcf | Called variants in VCF format. | per-sample |
+
+
+
+
+## Pipeline overview
+
+1. Concatenate reads and filter out short reads < 200 bases long
+2. Align reads to reference with [minimap2](https://github.com/lh3/minimap2)
+3. Coverage calculations with [samtools](http://www.htslib.org/))
+4. Call variants using [medaka](https://github.com/nanoporetech/medaka) ([medaka blog](https://labs.epi2me.io/notebooks/Introduction_to_how_ONT's_medaka_works.html))
+5. Make a (coverage masked) consensus with [bcftools](https://samtools.github.io/bcftools/bcftools.html)
+6. Typing using [abricate](https://github.com/tseemann/abricate) with the [insaflu](https://insaflu.insa.pt/) database, containing the following sequences:
 
 | Database|Gene|Accession|Details|
 |----|----|----|----|
@@ -74,55 +174,37 @@ Typing is carried out using [abricate](https://github.com/tseemann/abricate) usi
 |insaflu|NA|EU429793|N4 EU429793.1 Influenza A virus (A/turkey/Ontario/6118/1968(H8N4)) segment 6 neuraminidase (NA) mRNA, complete cds
 |insaflu|NA|EU429795|N6 EU429795.1 Influenza A virus (A/duck/England/1/1956(H11N6)) segment 6 neuraminidase (NA) mRNA, complete cds
 
+7. Clade and lineage assignment using [nextclade](https://clades.nextstrain.org/)
 
 
 
-## Quickstart
+## Troubleshooting
 
-The workflow uses [nextflow](https://www.nextflow.io/) to manage compute and
-software resources. Thus, nextflow will need to be installed before attempting
-to run the workflow.
-
-The workflow can currently be run using either
-[Docker](https://www.docker.com/products/docker-desktop) or
-[Singularity](https://docs.sylabs.io/guides/3.5/user-guide/introduction.html) to provide isolation of
-the required software. Both methods are automated out-of-the-box, provided
-either docker of singularity is installed.
-
-It is not required to clone or download the git repository in order to run the workflow.
-For more information on running EPI2ME Labs workflows [visit our website](https://labs.epi2me.io/wfindex).
-
-**Workflow options**
-
-To obtain the workflow, having installed `nextflow`, users can run:
-
-```
-nextflow run epi2me-labs/wf-flu --help
-```
-
-to see the options for the workflow.
-
-**Workflow outputs**
-
-The workflow creates several files that are useful for interpretation and analysis:
-
-* Per run:
-  * `wf-flu-report.html`: Easy-to-use HTML report for all samples in the run
-  * `wf-flu-results.csv`: Typing results in CSV format for onward processing
-* Per sample:
-  * `<SAMPLE_NAME>.stats`: Read stats
-  * `<SAMPLE_NAME>.bam`: Alignment of reads to reference
-  * `<SAMPLE_NAME>.bam.bai`: BAM index
-  * `<SAMPLE_NAME>.annotate.filtered.vcf`: medaka called variants
-  * `<SAMPLE_NAME>.draft.consensus.fasta`: Consensus FASTA
-  * `<SAMPLE_NAME>.insaflu.typing.txt`: abricate typing results
+ 
 
 
 
 
-## Useful links
+## FAQ's
 
-* [nextflow](https://www.nextflow.io/)
-* [docker](https://www.docker.com/products/docker-desktop)
-* [singularity](https://docs.sylabs.io/guides/3.5/user-guide/introduction.html)
-* [insaflu](https://insaflu.insa.pt/)
+_Why does the workflow hang after only running validate_sample_sheet and fastcat processes?_
+
+This is likely happening because the user is running the workflow on ARM processors, such as in M1/2 MACs. 
+Avoid this by either using a diferent local computer or by running the workflow on cloud.
+
+_Why does the workflow fail, or the report shows very low coverage?_
+
+This can happen when users use the workflow on data that has been generate using the RBK protocol instead of the recomended [Influenza whole-genome protocol](https://community.nanoporetech.com/docs/prepare/library_prep_protocols/ligation-sequencing-influenza-whole-genome), as a result of RBK's shorter read lengths.
+
+ 
+
+
+
+
+## Related blog posts
+
+ 
+
+
+
+
