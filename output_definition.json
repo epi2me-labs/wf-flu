@@ -42,7 +42,7 @@
     },
     "typing": {
       "filepath": "./{{ alias }}/typing/insaflu.typing.txt",
-      "title": "Typing results",
+      "title": "Insaflu typing results",
       "description": "Insaflu abricate typing results.",
       "mime-type": "text/tab-separated-values",
       "optional": false,
