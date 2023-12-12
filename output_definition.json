@@ -20,7 +20,7 @@
       "filepath": "./{{ alias }}/alignments/align.bam",
       "title": "Read alignments",
       "description": "Read allignments per sample in BAM format.",
-      "mime-type": "application/x-gzip",
+      "mime-type": "application/gzip",
       "optional": false,
       "type": "per-sample"
     },
@@ -28,7 +28,7 @@
       "filepath": "./{{ alias }}/consensus/draft.consensus.fasta",
       "title": "Draft consensus FASTA",
       "description": "Draft consensus sequence.",
-      "mime-type": "text/fastq",
+      "mime-type": "text/plain",
       "optional": false,
       "type": "per-sample"
     },
@@ -52,7 +52,7 @@
       "filepath": "./{{ alias }}/variants/variants.annotated.filtered.vcf",
       "title": "Variants file",
       "description": "Called variants in VCF format.",
-      "mime-type": "text/tab-separated-values",
+      "mime-type": "text/plain",
       "optional": false,
       "type": "per-sample"
     }

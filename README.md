@@ -180,12 +180,14 @@ Outputs files may be aggregated including information for all samples or provide
 
 ## Troubleshooting
 
- 
-
+ + If the workflow fails please run it with the demo data set to ensure the workflow itself is working. This will help us determine if the issue is related to the environment, input parameters or a bug.
++ See how to interpret some common nextflow exit codes [here](https://labs.epi2me.io/trouble-shooting/).
 
 
 
 ## FAQ's
+
+If your question is not answered here, please report any issues or suggestions on the [github issues](https://github.com/epi2me-labs/wf-flu/issues) page or start a discussion on the [community](https://nanoporetech.com/support).
 
 _Why does the workflow hang after only running validate_sample_sheet and fastcat processes?_
 
@@ -203,8 +205,9 @@ This can happen when users use the workflow on data that has been generate using
 
 ## Related blog posts
 
- 
+ + [Importing third-party workflows into EPI2ME Labs](https://labs.epi2me.io/nexflow-for-epi2melabs/)
 
+See the [EPI2ME website](https://labs.epi2me.io/) for lots of other resources and blog posts.
 
 
 
