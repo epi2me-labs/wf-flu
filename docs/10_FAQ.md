@@ -1,3 +1,5 @@
+If your question is not answered here, please report any issues or suggestions on the [github issues](https://github.com/epi2me-labs/wf-flu/issues) page or start a discussion on the [community](https://nanoporetech.com/support).
+
 _Why does the workflow hang after only running validate_sample_sheet and fastcat processes?_
 
 This is likely happening because the user is running the workflow on ARM processors, such as in M1/2 MACs. 
