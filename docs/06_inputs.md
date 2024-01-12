@@ -17,6 +17,7 @@
 | min_qscore | number | Minimum read quality score for fastcat. | Any reads which are below quality score of 9 are not used by default. This parameter allows you to customise that. For more information on quality scores please see this blog post: https://labs.epi2me.io/quality-scores | 9 |
 | downsample | integer | Number of reads to downsample to in each direction, leave blank for no downsampling. | By default the workflow will use 130 reads (65 forward, 65 reverse) for typing. However, if you wish to change the number of reads to downsample please specify here. | 130 |
 | medaka_consensus_model | string | The name of a Medaka model to use. By default the workflow will select an appropriate Medaka model from the basecaller configuration provided. Entering a name here will override the automated selection and use the Medaka model named here. | The workflow will attempt to map the basecalling model used to a suitable Medaka consensus model. You can override this by providing a model with this option instead. |  |
+| rbk | boolean | Set when using data created with the RBK protocol. | This prevents shorter reads being filtered out and also turns off downsampling as this is not appropriate for the shorter reads generated with RBK. | False |
 
 
 ### Miscellaneous Options
