@@ -168,6 +168,13 @@
                     "title": "Medaka consensus model",
                     "description": "The name of a Medaka model to use. By default the workflow will select an appropriate Medaka model from the basecaller configuration provided. Entering a name here will override the automated selection and use the Medaka model named here.",
                     "help_text": "The workflow will attempt to map the basecalling model used to a suitable Medaka consensus model. You can override this by providing a model with this option instead."
+                },
+                "rbk": {
+                    "type": "boolean",
+                    "title": "rbk",
+                    "description": "Set when using data created with the RBK protocol.",
+                    "help_text": "This prevents shorter reads being filtered out and also turns off downsampling as this is not appropriate for the shorter reads generated with RBK.",
+                    "default": false
                 }
             }
         },

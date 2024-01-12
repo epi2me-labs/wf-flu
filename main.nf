@@ -346,7 +346,10 @@ workflow pipeline {
         coverage = coverageCalc(alignment.alignments)
 
         // do crude downsampling
-        if (params.downsample != null){
+        if (params.rbk){
+            println("RBK data - NOT Downsampling!!!")
+            downsample = alignment
+        } else if (params.downsample != null){
             println("Downsampling!!!")
             downsample = downSample(alignment.alignments, reference)
         } else {

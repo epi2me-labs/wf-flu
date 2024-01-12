@@ -36,6 +36,10 @@ def find_nextclade(typing, nextclade_datasets):
             strain = f'{typing["HA"][0]}{typing["NA"][0]}'
         elif flu_type == "Type_B":
             strain = f'{typing["HA"][0]}'
+        elif flu_type == "undetermined":
+            raise ValueError("Flu type is undetermined. \n \
+                             If reads are from the RBK protocol, ensure \
+                             --rbk has been set to prevent overfiltering.")
         else:
             raise ValueError(f'{flu_type} is not Type_A or Type_B')
 
