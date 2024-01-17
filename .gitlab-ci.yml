@@ -13,7 +13,7 @@ docker-run:
     parallel:
         matrix:
           - MATRIX_NAME: [
-            "default", "basecaller-config", "kit14", "rbk"]
+            "default", "basecaller-config", "kit14", "bad_reference"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -26,7 +26,6 @@ docker-run:
         - if: $MATRIX_NAME == "kit14"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --sample_sheet test_data/sample_sheet_kit14.csv --downsample 50 --basecaller_cfg dna_r10.4.1_e8.2_400bps_hac"
-        #- if: $MATRIX_NAME == "rbk"
-        #  variables:
-        #      NF_WORKFLOW_OPTS: "--fastq test_data/rbk_fastq --sample_sheet test_data/sample_sheet_rbk.csv --rbk"
-        #      NF_IGNORE_PROCESSES: "downSample"
+        - if: $MATRIX_NAME == "bad_reference"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --sample_sheet test_data/sample_sheet.csv --downsample 50 --reference test_data/bad_reference.fasta"

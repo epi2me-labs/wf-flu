@@ -77,7 +77,30 @@ Samples not prepared with this protocol may work sub-optimally or fail to comple
 
 
 
-## Inputs
+## Input example
+
+<!---Example of input directory structure, delete and edit as appropriate per workflow.--->
+This workflow accepts FASTQ files as input.
+
+The FASTQ input parameters for this workflow accept one of three cases: (i) the path to a single FASTQ file; (ii) the path to a top-level directory containing FASTQ files; (iii) the path to a directory containing one level of sub-directories which in turn contain FASTQ files. In the first and second cases (i and ii), a sample name can be supplied with `--sample`. In the last case (iii), the data is assumed to be multiplexed with the names of the sub-directories as barcodes. In this case, a sample sheet can be provided with `--sample_sheet`.
+
+```
+(i)                     (ii)                 (iii)    
+input_reads.fastq   ─── input_directory  ─── input_directory
+                        ├── reads0.fastq     ├── barcode01
+                        └── reads1.fastq     │   ├── reads0.fastq
+                                             │   └── reads1.fastq
+                                             ├── barcode02
+                                             │   ├── reads0.fastq
+                                             │   ├── reads1.fastq
+                                             │   └── reads2.fastq
+                                             └── barcode03
+                                              └── reads0.fastq
+```
+
+
+
+## Input parameters
 
 ### Input Options
 
@@ -96,7 +119,7 @@ Samples not prepared with this protocol may work sub-optimally or fail to comple
 | blastdb | string | blastdb file used for typing. | The workflow provides the INSaFLU blastdb. If you would like to supply an alternative then provide the full path to the file here. |  |
 | min_coverage | integer | Coverage threshold for masking bases in the consensus. | Any bases that are covered below 20x are masked (i.e. represented by 'N') by default in the consensus, this threshold can be changed using this parameter. | 20 |
 | min_qscore | number | Minimum read quality score for fastcat. | Any reads which are below quality score of 9 are not used by default. This parameter allows you to customise that. For more information on quality scores please see this blog post: https://labs.epi2me.io/quality-scores | 9 |
-| downsample | integer | Number of reads to downsample to in each direction, leave blank for no downsampling. | By default the workflow will use 130 reads (65 forward, 65 reverse) for typing. However, if you wish to change the number of reads to downsample please specify here. | 130 |
+| downsample | integer | Number of reads to downsample to in each direction, leave blank for no downsampling. | The workflow for each segment will first filter reads to include only those that are ±10% of the segment length before downsampling to the specified integer (taking an even split from forward and reverse reads). This downsampled data is then used in variant calling. |  |
 | medaka_consensus_model | string | The name of a Medaka model to use. By default the workflow will select an appropriate Medaka model from the basecaller configuration provided. Entering a name here will override the automated selection and use the Medaka model named here. | The workflow will attempt to map the basecalling model used to a suitable Medaka consensus model. You can override this by providing a model with this option instead. |  |
 | rbk | boolean | Set when using data created with the RBK protocol. | This prevents shorter reads being filtered out and also turns off downsampling as this is not appropriate for the shorter reads generated with RBK. | False |
 
@@ -114,7 +137,7 @@ Samples not prepared with this protocol may work sub-optimally or fail to comple
 
 ## Outputs
 
-Outputs files may be aggregated including information for all samples or provided per sample. Per-sample files will be prefixed with respective aliases and represented below as {{ alias }}.
+Output files may be aggregated including information for all samples or provided per sample. Per-sample files will be prefixed with respective aliases and represented below as {{ alias }}.
 
 | Title | File path | Description | Per sample or aggregated |
 |-------|-----------|-------------|--------------------------|
