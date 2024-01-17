@@ -159,9 +159,8 @@
                     "type": "integer",
                     "title": "Downsampling read threshold",
                     "description": "Number of reads to downsample to in each direction, leave blank for no downsampling.",
-                    "help_text": "By default the workflow will use 130 reads (65 forward, 65 reverse) for typing. However, if you wish to change the number of reads to downsample please specify here.",
-                    "minimum": 1,
-                    "default": 130
+                    "help_text": "The workflow for each segment will first filter reads to include only those that are ±10% of the segment length before downsampling to the specified integer (taking an even split from forward and reverse reads). This downsampled data is then used in variant calling.",
+                    "minimum": 2
                 },
                 "medaka_consensus_model": {
                     "type": "string",

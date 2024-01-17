@@ -60,50 +60,41 @@ process downSample {
     output:
         tuple val(meta), path("all_merged.sorted.bam"), path("all_merged.sorted.bam.bai"), emit: alignments
     """
-    # split bam
-    header_count=`samtools view -H align.bam | wc -l`
-    lines=\$(( ${params.downsample} + \$header_count + 1 ))
-
-    # get the regions from the fasta
-    awk '/^>/ {if (seqlen){print seqlen}; print ;seqlen=0;next; } { seqlen += length(\$0)}END{print seqlen}' reference.fasta | tr "\\n" "," | tr '>' '\\n' | sed 's/,\$//g' | grep ',' > regions.txt
-
+    # get region info from fasta
+    samtools faidx reference.fasta
+    cut -f1-2 reference.fasta.fai > regions.txt
+    
     # for every region we're going to downsample separatley
-
-    while read region_string;
+    while read -r region length;
     do
-
-      region=`echo \${region_string} | cut -f1 -d','`
-      length=`echo \${region_string} | cut -f2 -d','`
 
       # get upper and lower bounds of reference span
 
       upper=`echo \$((\${length}+(\${length}*10/100)))`
       lower=`echo \$((\${length}-(\${length}*10/100)))`
 
-      samtools view -H align.bam \${region} > head.sam
-
       # filter reads in region and covering region
 
-      samtools view align.bam \${region} | awk -v upper="\${upper}" -v lower="\${lower}" '{if(length(\$10) < upper && length(\$10) > lower) print \$0}' > \${region}.tmp.sam;
+      samtools view -bh align.bam -e "length(seq)>\${lower} && length(seq)<\${upper}" \${region} > \${region}.bam;
 
       # ignore regions with no reads
-      count=`wc -l < \${region}.tmp.sam`
+      count=`samtools view -c \${region}.bam`
 
       if [ "\${count}" -eq "0" ];
       then
         echo "no reads in \${region} so continuing"
-        cat head.sam | samtools view -bh > \${region}_all.bam
+        cp \${region}.bam \${region}_all.bam
         continue;
       fi
 
-      cat head.sam \${region}.tmp.sam | samtools view -bh > \${region}.bam
+      lines=( ${params.downsample} / 2 )
 
-      samtools view -h -F16 \${region}.bam > \${region}_fwd.sam;
-      head -\${lines} \${region}_fwd.sam | samtools view -bh - > \${region}_fwd.bam;
+      # get header 
+      samtools view -H \${region}.bam > \${region}_all.sam
 
-      samtools view -h -f16 \${region}.bam > \${region}_rev.sam;
-      head -\${lines} \${region}_rev.sam | samtools view -bh - > \${region}_rev.bam;
-      samtools merge \${region}_all.bam \${region}_fwd.bam \${region}_rev.bam;
+      samtools view -F16 \${region}.bam | shuf -n \${lines} >> \${region}_all.sam
+      samtools view -f16 \${region}.bam | shuf -n \${lines} >> \${region}_all.sam
+      samtools view -bh \${region}_all.sam > \${region}_all.bam
 
     done < regions.txt
 
