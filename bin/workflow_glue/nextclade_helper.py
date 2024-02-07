@@ -88,6 +88,9 @@ def main(args):
         datasets = find_nextclade(typing, args.nextclade_datasets)
         consensus = make_consensus(datasets, args.consensus, args.sample_alias)
 
+        if len(consensus) == 0:
+            logger.warning("Flu strain not currently available in nextclade.")
+
         for i in consensus:
             dataset_dir = f'datasets/{i["dataset"]}'
             os.mkdir(dataset_dir)
