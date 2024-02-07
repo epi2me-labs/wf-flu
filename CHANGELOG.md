@@ -4,14 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+## [v1.1.0]
 ### Changed
 - Downsampling is no longer run by default
 - Reduced test data sample size
 - Some formatting in github issue template
+
 ### Fixed
 - Downsampling behaviour reworked to better catch errors from custom fasta references
 - Reports are generated when no samples have met the criteria for nextclade analysis
+
 ### Added
 - RBK compatibility flag 
 
