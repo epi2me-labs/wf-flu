@@ -3,6 +3,7 @@ import csv
 import json
 import os
 import re
+import sys
 
 
 from dominate.tags import h5, p, span, table, tbody, td, th, thead, tr
@@ -126,6 +127,8 @@ def main(args):
                             elif row.index[i] == 'Archetype' and row.Type == "Type_B":
                                 cell.add(
                                     h5(span(row[i], cls="badge bg-info"), cls="mb-0"))
+                            elif row.index[i] == 'Barcode' and row[i] is None:
+                                cell.add(span("None"))
                             else:
                                 cell.add(span(row[i]))
 
@@ -187,37 +190,58 @@ def main(args):
         )
 
     with report.add_section('Nextclade results', 'Nextclade', True):
-        tabs = Tabs()
+        nextclade_data = {}
         with open(args.nextclade_datasets, "r") as n:
             csv_reader = csv.DictReader(n, delimiter=",")
             for record in csv_reader:
                 nxt_json = f"nextclade/{record['dataset']}.json"
                 if nxt_json in args.nextclade_files:
-                    with tabs.add_tab(f"{record['strain']} - {record['gene']}"):
-                        output = dict(
-                            sample=list(),
-                            strain=list(),
-                            gene=list(),
-                            coverage=list(),
-                            clade=list(),
-                            warnings=list())
+                    output = {
+                        "sample": [],
+                        "strain": [],
+                        "gene": [],
+                        "coverage": [],
+                        "clade": [],
+                        "warnings": []
+                        }
+                    try:
                         nxt_results = json.load(open(nxt_json))
-
-                        for nxt_result in nxt_results["results"]:
-                            output['sample'].append(nxt_result['seqName'])
-                            output['strain'].append(record['strain'])
-                            output['gene'].append(record['gene'])
-                            output['coverage'].append(f"{nxt_result['coverage']:.2f}")
-                            output['clade'].append(nxt_result['clade'])
-                            output['warnings'].append(
-                                ",".join(nxt_result['warnings']))
-                        df = pd.DataFrame.from_dict(output)
-                        df.columns = df.columns.str.title()
-                        DataTable.from_pandas(
-                            df,
-                            use_index=False,
-                            export=True,
-                            file_name='wf-flu-nextclade')
+                    except json.decoder.JSONDecodeError:
+                        logger.error(
+                            f"Unable to load JSON for {record['dataset']}"
+                        )
+                        sys.exit(1)
+                    for nxt_result in nxt_results["results"]:
+                        output['sample'].append(nxt_result['seqName'])
+                        output['strain'].append(record['strain'])
+                        output['gene'].append(record['gene'])
+                        output['coverage'].append(
+                            f"{nxt_result['coverage']:.2f}"
+                            )
+                        output['clade'].append(nxt_result['clade'])
+                        output['warnings'].append(
+                            ",".join(nxt_result['warnings']))
+                    nextclade_data[f"{record['strain']} - {record['gene']}"] = output
+        if nextclade_data:
+            tabs = Tabs()
+            for tab_name, results in nextclade_data.items():
+                with tabs.add_tab(tab_name):
+                    df = pd.DataFrame.from_dict(results)
+                    df.columns = df.columns.str.title()
+                    DataTable.from_pandas(
+                        df,
+                        use_index=False,
+                        export=True,
+                        file_name='wf-flu-nextclade')
+        else:
+            p(
+                """
+                No sample met the criteria for Nextclade analysis.
+                Please check the quality and strains of your samples.
+                Nextclade analysis is available for the following strains:
+                H1N1pdm, H3N2, Victoria, Yamagata
+                """
+            )
 
     if args.stats:
         with report.add_section("Read summary", "Read summary"):

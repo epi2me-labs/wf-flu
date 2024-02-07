@@ -207,6 +207,7 @@ process prepNextclade {
     if [ -z "\$(ls -A datasets)" ]; then
         rm -r datasets
     fi
+
     """
 }
 
@@ -368,15 +369,19 @@ workflow pipeline {
 
         processed_type = processType(flu_type.typing)
 
-        nextclade_prep_input = processed_type.join(draft, remainder: true)
 
-        nextclade_prep = prepNextclade(nextclade_prep_input, nextclade_data)
+        nextclade_prep = prepNextclade(
+            processed_type.join(draft, remainder: true),
+            nextclade_data
+        )
+
         
         nextclade_datasets = nextclade_prep
         | map { file(it.resolve("**"), type: "file") }
         | flatten
         | map { [it.parent.name, it] }
         | groupTuple
+
 
         nextclade_result = nextclade(nextclade_datasets)
 
@@ -408,7 +413,7 @@ workflow pipeline {
             samples.map{it -> it[0]}.toList(),
             samples.map{it -> it[2].resolve("per-read-stats.tsv.gz")}.toList(),
             ch_results_for_report | collect,
-            nextclade_result.map{it -> it[1]}.collect(),
+            nextclade_result.map{it -> it[1]}.ifEmpty(OPTIONAL_FILE).collect(),
             nextclade_data,
             software_versions.collect(),
             workflow_params

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Some formatting in github issue template
 ### Fixed
 - Downsampling behaviour reworked to better catch errors from custom fasta references
+- Reports are generated when no samples have met the criteria for nextclade analysis
 ### Added
 - RBK compatibility flag 
 

@@ -13,7 +13,7 @@ docker-run:
     parallel:
         matrix:
           - MATRIX_NAME: [
-            "default", "basecaller-config", "bad_reference"]
+            "default", "basecaller-config", "bad_reference", "no-nextclade"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -26,3 +26,7 @@ docker-run:
         - if: $MATRIX_NAME == "bad_reference"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --sample_sheet test_data/sample_sheet.csv --downsample 50 --reference test_data/bad_reference.fasta"
+        - if: $MATRIX_NAME == "no-nextclade"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/rbk_fastq --sample_sheet test_data/sample_sheet_rbk.csv"
+              NF_IGNORE_PROCESSES: "nextclade,downSample"
