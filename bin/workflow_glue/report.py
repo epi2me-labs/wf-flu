@@ -23,8 +23,8 @@ def gather_sample_files(sample_details, args):
     """Create dictionary for sample with paths to data files."""
     sample_files = {}
     for sample in sample_details:
-        sample_dir = os.path.join(args.data[0], sample["alias"])
-        sample_files[sample["alias"]] = {
+        sample_dir = os.path.join(args.data[0], sample["sample"])
+        sample_files[sample["sample"]] = {
             "depth": os.path.join(sample_dir, "depth.txt"),
             "type_json": os.path.join(sample_dir, "processed_type.json"),
             "type_txt": os.path.join(sample_dir, "insaflu.typing.txt")
@@ -36,7 +36,7 @@ def gather_sample_files(sample_details, args):
 def typing(sample_details, sample_files):
     """Get typing results and add to a table and csv for export."""
     for sample in sample_details:
-        file_path = sample_files[sample["alias"]]["type_json"]
+        file_path = sample_files[sample["sample"]]["type_json"]
         if not os.path.exists(file_path):
             continue
         typing = json.load(open(file_path))
@@ -76,15 +76,15 @@ def main(args):
     logger = get_named_logger("Report")
     report = labs.LabsReport(
         "Influenza Sequencing Report", "wf-flu",
-        args.params, args.versions)
+        args.params, args.versions, args.workflow_version)
     with open(args.metadata) as metadata:
         sample_details = sorted([
             {
-                'alias': d['alias'],
+                'sample': d['alias'],
                 'type': d['type'],
                 'barcode': d['barcode']
             } for d in json.load(metadata)
-        ], key=lambda d: d["alias"])
+        ], key=lambda d: d["sample"])
     sample_files = gather_sample_files(sample_details, args)
     with report.add_section("Typing", "Typing"):
         p(
@@ -101,7 +101,7 @@ def main(args):
         typing_df.rename(columns={'Ha': 'HA', 'Na': 'NA'}, inplace=True)
         # add a new column 'Archetype'
         typing_df['Archetype'] = typing_df.apply(lambda row: get_archetype(row), axis=1)
-        typing_df = typing_df[['Alias', 'Barcode', 'Type', 'Archetype']]
+        typing_df = typing_df[['Sample', 'Barcode', 'Type', 'Archetype']]
 
         with table(cls="table"):
             with thead():
@@ -245,7 +245,12 @@ def main(args):
 
     if args.stats:
         with report.add_section("Read summary", "Read summary"):
-            fastcat.SeqSummary(args.stats)
+            names = tuple(d['sample'] for d in sample_details)
+            stats = tuple(args.stats)
+            if len(stats) == 1:
+                stats = stats[0]
+                names = names[0]
+            fastcat.SeqSummary(stats, sample_names=names)
 
     report.write(args.report)
     logger.info(f"Report written to {args.report}.")
@@ -257,7 +262,7 @@ def argparser():
     parser.add_argument("report", help="Report output file")
     parser.add_argument(
         "--stats", nargs='*',
-        help="Fastcat per-read stats file(s).")
+        help="Fastcat stats directories containing histogram files.")
     parser.add_argument(
         "--metadata", default='metadata.json',
         help="sample metadata")
@@ -282,4 +287,7 @@ def argparser():
     parser.add_argument(
         "--commit", default='unknown',
         help="git commit of the executed workflow")
+    parser.add_argument(
+        "--workflow_version", required=True,
+        help="Workflow version")
     return parser
