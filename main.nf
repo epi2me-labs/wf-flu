@@ -278,7 +278,7 @@ process makeReport {
     cpus 1
     input:
         val metadata
-        path "fastcat_stats/?.gz"
+        path stats, stageAs: "stats_*"
         path "data/*"
         path "nextclade/*"
         path nextclade_datasets
@@ -293,12 +293,13 @@ process makeReport {
     echo '${metadata}' > metadata.json
     workflow-glue report "${report_name}"\
         --data data \
-        --stats fastcat_stats/* \
+        --stats ${stats} \
         --versions versions \
         --params params.json \
         --nextclade_files nextclade/* \
         --nextclade_datasets "${nextclade_datasets}" \
-        --metadata metadata.json
+        --metadata metadata.json \
+        --workflow_version ${workflow.manifest.version}
     """
 }
 
@@ -334,6 +335,13 @@ workflow pipeline {
         blastdb
         nextclade_data
     main:
+        samples.multiMap{ meta, path, stats ->
+            meta: meta
+            stats: stats
+        }.set { for_report }
+
+        stats = for_report.stats.collect()
+
         alignment = alignReads(samples.map{ meta, reads, stats -> [ meta,reads ] }, reference)
         coverage = coverageCalc(alignment.alignments)
 
@@ -410,8 +418,8 @@ workflow pipeline {
 
 
         report = makeReport(
-            samples.map{it -> it[0]}.toList(),
-            samples.map{it -> it[2].resolve("per-read-stats.tsv.gz")}.toList(),
+            for_report.meta.collect(),
+            stats,
             ch_results_for_report | collect,
             nextclade_result.map{it -> it[1]}.ifEmpty(OPTIONAL_FILE).collect(),
             nextclade_data,
