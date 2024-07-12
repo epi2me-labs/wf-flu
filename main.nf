@@ -106,39 +106,33 @@ process downSample {
     """
 }
 
-process lookup_medaka_consensus_model {
-    label "wfflu"
-    input:
-        path("lookup_table")
-        val basecall_model
-    output:
-        stdout
-    shell:
-    '''
-    medaka_model=$(workflow-glue resolve_medaka_model lookup_table '!{basecall_model}' "medaka_consensus")
-    echo -n $medaka_model
-    '''
-}
-
-
 process medakaVariants {
     label "medaka"
     cpus 1
     input:
-        tuple val(meta), path("downsample.bam"), path("downsample.bam.bai"), val(medaka_model)
+        tuple val(meta), path("downsample.bam"), path("downsample.bam.bai")
         path("reference.fasta")
     output:
         tuple val(meta), path("variants.annotated.filtered.vcf")
     script:
+    // we use `params.override_basecaller_cfg` if present; otherwise use
+    // `meta.basecall_models[0]` (there should only be one value in the list because
+    // we're running ingress with `allow_multiple_basecall_models: false`; note that
+    // `[0]` on an empty list returns `null`)
+    String basecall_model = params.override_basecaller_cfg ?: meta.basecall_models[0]
+    if (!basecall_model) {
+        error "Found no basecall model information in the input data for " + \
+            "sample '$meta.alias'. Please provide it with the " + \
+            "`--override_basecaller_cfg` parameter."
+    }
     """
-    medaka consensus downsample.bam consensus.hdf --model "${medaka_model}"
+    medaka consensus downsample.bam consensus.hdf --model "${basecall_model}:consensus"
     medaka variant --gvcf reference.fasta consensus.hdf variants.vcf --verbose
     medaka tools annotate --debug --pad 25 variants.vcf reference.fasta downsample.bam variants.annotated.vcf
 
     bcftools filter -e "ALT='.'" variants.annotated.vcf | bcftools filter -o variants.annotated.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
     """
 }
-
 
 process makeConsensus {
     label "wfflu"
@@ -357,18 +351,7 @@ workflow pipeline {
             downsample = alignment
         }
 
-        if(params.medaka_consensus_model) {
-            log.warn "Overriding Medaka consensus model with ${params.medaka_consensus_model}."
-            medaka_consensus_model = Channel.fromList([params.medaka_consensus_model])
-        }
-        else {
-            lookup_table = Channel.fromPath("${projectDir}/data/medaka_models.tsv", checkIfExists: true)
-            medaka_consensus_model = lookup_medaka_consensus_model(lookup_table, params.basecaller_cfg)
-        }
-
-        bams_for_calling = downsample.alignments.combine(medaka_consensus_model)
-
-        variants = medakaVariants(bams_for_calling, reference)
+        variants = medakaVariants(downsample.alignments, reference)
 
         for_draft = variants.join(coverage)
 
@@ -459,10 +442,18 @@ workflow {
 
     Pinguscript.ping_start(nextflow, workflow, params)
 
+    // warn the user if overriding the basecall models found in the inputs
+    if (params.override_basecaller_cfg) {
+        log.warn \
+            "Overriding basecall model with '${params.override_basecaller_cfg}'."
+    }
+
     samples = fastq_ingress([
-    "input": params.fastq,
-    "stats": true,
-    "sample_sheet": params.sample_sheet])
+        "input": params.fastq,
+        "stats": true,
+        "sample_sheet": params.sample_sheet,
+        "allow_multiple_basecall_models": false,
+    ])
 
 
   //get reference
@@ -474,7 +465,7 @@ workflow {
       params.remove('reference')
     }
 
-    //get reference
+    //get db
     if (params.blastdb == null){
       params.remove('blastdb')
       params._blastdb = projectDir.resolve("./data/primer_schemes/V1/blastdb").toString()
