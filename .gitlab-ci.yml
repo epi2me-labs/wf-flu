@@ -13,20 +13,15 @@ docker-run:
     parallel:
         matrix:
           - MATRIX_NAME: [
-            "default", "basecaller-config", "bad_reference", "no-nextclade"]
+            "default", "bad_reference", "no-nextclade"]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
         - if: $MATRIX_NAME == "default"
-          variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --sample_sheet test_data/sample_sheet.csv --downsample 50"
-        - if: $MATRIX_NAME == "basecaller-config"
-          variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --sample_sheet test_data/sample_sheet.csv --downsample 50 --basecaller_cfg dna_r9.4.1_450bps_hac"
         - if: $MATRIX_NAME == "bad_reference"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --sample_sheet test_data/sample_sheet.csv --downsample 50 --reference test_data/bad_reference.fasta"
         - if: $MATRIX_NAME == "no-nextclade"
           variables:
-              NF_WORKFLOW_OPTS: "--fastq test_data/rbk_fastq --sample_sheet test_data/sample_sheet_rbk.csv"
+              NF_WORKFLOW_OPTS: "--fastq test_data/rbk_fastq --sample_sheet test_data/sample_sheet_rbk.csv --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
               NF_IGNORE_PROCESSES: "nextclade,downSample"
