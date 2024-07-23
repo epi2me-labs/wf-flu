@@ -27,6 +27,8 @@ def process_typing(typing_json):
 def find_nextclade(typing, nextclade_datasets):
     """Find nextclade datasets suitable for sample."""
     datasets = list()
+    typed = True
+    strain = None
     with open(nextclade_datasets, "r") as n:
         csv_reader = csv.DictReader(n, delimiter=",")
 
@@ -37,24 +39,23 @@ def find_nextclade(typing, nextclade_datasets):
         elif flu_type == "Type_B":
             strain = f'{typing["HA"][0]}'
         elif flu_type == "undetermined":
-            raise ValueError("Flu type is undetermined. \n \
-                             If reads are from the RBK protocol, ensure \
-                             --rbk has been set to prevent overfiltering.")
+            typed = False
         else:
-            raise ValueError(f'{flu_type} is not Type_A or Type_B')
+            raise ValueError(f'{flu_type} is not a known category')
 
-        for record in csv_reader:
-            if record["strain"] == strain:
-                datasets.append(
-                    {
-                        "type": flu_type.replace("Type_", ""),
-                        "strain": strain,
-                        "dataset": record["dataset"],
-                        "gene": record["gene"],
-                    }
-                )
+        if strain is not None:
+            for record in csv_reader:
+                if record["strain"] == strain:
+                    datasets.append(
+                        {
+                            "type": flu_type.replace("Type_", ""),
+                            "strain": strain,
+                            "dataset": record["dataset"],
+                            "gene": record["gene"],
+                        }
+                    )
 
-    return datasets
+    return datasets, typed
 
 
 def make_consensus(datasets, consensus, alias):
@@ -85,7 +86,11 @@ def main(args):
     logger = get_named_logger("nextclade_helper")
     typing = process_typing(args.typing)
     if typing is not None:
-        datasets = find_nextclade(typing, args.nextclade_datasets)
+        datasets, type_status = find_nextclade(typing, args.nextclade_datasets)
+        if not type_status:
+            logger.warning("Flu type is undetermined. \n \
+                           If reads are from the RBK protocol, ensure \
+                           --rbk has been set to prevent overfiltering.")
         consensus = make_consensus(datasets, args.consensus, args.sample_alias)
 
         if len(consensus) == 0:

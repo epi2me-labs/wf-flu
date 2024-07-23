@@ -51,6 +51,7 @@ def typing(sample_details, sample_files):
                 sample[i] = 'undetermined'
 
     data = pd.DataFrame(sample_details)
+    data.rename(columns={"alias": "sample"}, inplace=True)
     for_csv = data.drop('type', axis=1)
     for_csv.to_csv("wf-flu-results.csv", sep=',', index=False)
 
@@ -69,6 +70,22 @@ def get_archetype(row):
         return row['HA']
     else:
         return 'undetermined'
+
+
+def get_row_format(row_data):
+    """Format typing table row."""
+    cell = tr()
+    badge_dict = {
+        "Type_A": "badge bg-primary",
+        "Type_B": "badge bg-info",
+        "undetermined": "badge bg-warning"}
+    badge = badge_dict[row_data["Type"]]
+    for column, row in row_data.items():
+        if column in ["Sample", "Barcode"]:
+            cell.add(td(span(row)))
+        else:
+            cell.add(td(h5(span(row.replace("Type_", ""), cls=badge), cls="mb-0")))
+    return cell
 
 
 def main(args):
@@ -97,10 +114,9 @@ def main(args):
             """
         )
         typing_df = typing(sample_details, sample_files)
-        typing_df.columns = typing_df.columns.str.title().str.replace("_", " ")
-        typing_df.rename(columns={'Ha': 'HA', 'Na': 'NA'}, inplace=True)
         # add a new column 'Archetype'
         typing_df['Archetype'] = typing_df.apply(lambda row: get_archetype(row), axis=1)
+        typing_df.columns = typing_df.columns.str.title()
         typing_df = typing_df[['Sample', 'Barcode', 'Type', 'Archetype']]
 
         with table(cls="table"):
@@ -108,29 +124,8 @@ def main(args):
                 for columns in typing_df.columns:
                     th(f"{columns}")
             with tbody():
-                for index, row in typing_df.iterrows():
-                    with tr():
-                        for i in range(4):
-                            cell = td()
-                            if row[i] == 'undetermined':
-                                cell.add(h5(span(
-                                    'Undetermined', cls="badge bg-warning"),
-                                    cls="mb-0"))
-                            elif row.index[i] == 'Type' and row[i] == 'Type_A':
-                                cell.add(
-                                    h5(span('A', cls="badge bg-primary"), cls="mb-0"))
-                            elif row.index[i] == 'Type' and row[i] == 'Type_B':
-                                cell.add(h5(span('B', cls="badge bg-info"), cls="mb-0"))
-                            elif row.index[i] == 'Archetype' and row.Type == "Type_A":
-                                cell.add(h5(span(
-                                    row[i], cls="badge bg-primary"), cls="mb-0"))
-                            elif row.index[i] == 'Archetype' and row.Type == "Type_B":
-                                cell.add(
-                                    h5(span(row[i], cls="badge bg-info"), cls="mb-0"))
-                            elif row.index[i] == 'Barcode' and row[i] is None:
-                                cell.add(span("None"))
-                            else:
-                                cell.add(span(row[i]))
+                for _, row in typing_df.iterrows():
+                    get_row_format(row)
 
     with report.add_section("Typing details", "Typing details"):
         tabs = Tabs()

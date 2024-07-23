@@ -212,7 +212,7 @@ process nextclade {
     input:
         tuple val(dataset), path(files)
     output:
-        tuple val(dataset), path("${dataset}/${dataset}.json")
+        tuple val(dataset), path("${dataset}/${dataset}.json"), optional: true
     script:
     """
     mkdir ${dataset}
@@ -470,7 +470,7 @@ workflow {
       params.remove('blastdb')
       params._blastdb = projectDir.resolve("./data/primer_schemes/V1/blastdb").toString()
     } else {
-      params._blastdb = file(params.reference, type: "file", checkIfExists:true).toString()
+      params._blastdb = file(params.blastdb, type: "dir", checkIfExists:true).toString()
       params.remove('blastdb')
     }
 
