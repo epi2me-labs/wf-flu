@@ -18,6 +18,8 @@ docker-run:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
         - if: $MATRIX_NAME == "default"
+          variables:
+              NF_WORKFLOW_OPTS: "--fastq test_data/fastq --sample_sheet test_data/sample_sheet.csv --downsample 50"
         - if: $MATRIX_NAME == "bad_reference"
           variables:
               NF_WORKFLOW_OPTS: "--fastq test_data/fastq --sample_sheet test_data/sample_sheet.csv --downsample 50 --reference test_data/bad_reference.fasta"
