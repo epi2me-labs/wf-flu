@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Workflow crashing on report if missing metadata information
 ### Changed
-- Reconcile workflow with wf-template v5.3.4
+- Reconcile workflow with wf-template v5.3.1
 
 ## [v1.2.3]
 ### Changed
