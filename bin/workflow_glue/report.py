@@ -50,7 +50,7 @@ def typing(sample_details, sample_files):
             else:
                 sample[i] = 'undetermined'
 
-    data = pd.DataFrame(sample_details)
+    data = pd.DataFrame(sample_details).fillna("N/A")
     data.rename(columns={"alias": "sample"}, inplace=True)
     for_csv = data.drop('type', axis=1)
     for_csv.to_csv("wf-flu-results.csv", sep=',', index=False)
