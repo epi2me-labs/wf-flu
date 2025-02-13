@@ -3,7 +3,7 @@
     "$id": "https://raw.githubusercontent.com/./master/nextflow_schema.json",
     "title": "epi2me-labs/wf-flu",
     "workflow_title": "Influenza Typing Workflow",
-    "description": "Influenza A&B typing and analysis from Nanopore data.",
+    "description": "Influenza A&B typing and analysis from nanopore sequencing data.",
     "demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-flu/wf-flu-demo.tar.gz",
     "aws_demo_url": "https://ont-exd-int-s3-euwst1-epi2me-labs.s3.amazonaws.com/wf-flu/wf-flu-demo/aws.nextflow.config",
     "url": "https://github.com/epi2me-labs/wf-flu",
@@ -15,7 +15,7 @@
         },
         "minimum": {
             "cpus": 4,
-            "memory": "2GB"
+            "memory": "4GB"
         },
         "run_time": "30 minutes when number of cores >= samples",
         "arm_support": false

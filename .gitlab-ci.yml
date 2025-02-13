@@ -8,6 +8,8 @@ variables:
     NF_WORKFLOW_OPTS: "--fastq test_data/fastq --sample_sheet test_data/sample_sheet.csv --downsample 50"
     CI_FLAVOUR: "new"
     SKIP_PYTHON_TESTS: "not applicable"
+    PYTEST_CONTAINER_NAME: "wf-common"
+    PYTEST_CONTAINER_CONFIG_KEY: "common_sha"
 
 docker-run:
     parallel:
