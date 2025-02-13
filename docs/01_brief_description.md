@@ -1,1 +1,1 @@
-Influenza A&B typing and analysis from Nanopore data.
+Influenza A&B typing and analysis from nanopore sequencing data.
