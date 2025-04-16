@@ -167,6 +167,10 @@
                     "description": "Set when using data created with the RBK protocol.",
                     "help_text": "This prevents shorter reads being filtered out and also turns off downsampling as this is not appropriate for the shorter reads generated with RBK.",
                     "default": false
+                },
+                "store_dir": {
+                    "type": "string",
+                    "hidden": true
                 }
             }
         },
