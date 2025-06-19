@@ -217,12 +217,9 @@ process nextclade {
     """
     mkdir ${dataset}
     cat *.fasta > ${dataset}/${dataset}.consensus.fasta
-    if [[ "${dataset}" != "flu_h1n1pdm_na" ]]; then
-        nextclade dataset get --name \"${dataset}\" --output-dir "nextclade_datasets/${dataset}"
-    else
-        nextclade dataset get --name \"${dataset}\" --output-dir "nextclade_datasets/${dataset}" --reference MW626056
-    fi
-    nextclade run --input-dataset nextclade_datasets/${dataset} --output-all=${dataset}/ ${dataset}/${dataset}.consensus.fasta
+    
+    # nextclade_data_root is an env variable in the container
+    nextclade run --input-dataset \${nextclade_data_root}/${dataset} --output-all=${dataset}/ ${dataset}/${dataset}.consensus.fasta
     mv ${dataset}/nextclade.json ${dataset}/${dataset}.json
     """
 }

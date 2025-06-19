@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.2.5]
+## Changed
+- Updated to wf-template v5.6.1, changing:
+    - pre-commit configuration to resolve an internal dependency problem with flake8. This has no effect on the workflow
+### Fixed
+- Removed the need for the nextclade step to download the flu dataset as it is pre-baked into the nextcalde container, this should prevent certificate issues seen by some users
+
+
 ## [v1.2.4]
 ### Fixed
 - Workflow crashing on report if missing metadata information
