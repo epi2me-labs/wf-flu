@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.3.0]
+This release of wf-flu adds BAM file input support and updates internal workflow naming. This does not affect the workflow outputs.
+### Changed
+- Removed workflow suffix from workflow title.
+- Updated to wf-template v5.6.2 to maintain compliance with our latest wf-template standard: this does not impact the workflow.
+### Added
+- Input functionality for `BAM` files with parameter `--bam`
+
 ## [v1.2.5]
 ## Changed
 - Updated to wf-template v5.6.1, changing:

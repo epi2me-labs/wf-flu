@@ -13,7 +13,7 @@
 import groovy.json.JsonBuilder
 nextflow.enable.dsl = 2
 
-include { fastq_ingress } from './lib/ingress'
+include { fastq_ingress; xam_ingress } from './lib/ingress'
 
 OPTIONAL_FILE = file("$projectDir/data/OPTIONAL_FILE")
 
@@ -445,12 +445,24 @@ workflow {
             "Overriding basecall model with '${params.override_basecaller_cfg}'."
     }
 
-    samples = fastq_ingress([
-        "input": params.fastq,
-        "stats": true,
-        "sample_sheet": params.sample_sheet,
+    Map ingress_args = [
+        "sample_sheet":params.sample_sheet,
+        "analyse_unclassified":params.analyse_unclassified,
+        "stats":true,
         "allow_multiple_basecall_models": false,
-    ])
+    ]
+
+    if (params.fastq){
+        samples = fastq_ingress(ingress_args + [
+            "input":params.fastq,
+        ])
+    } else {
+        samples = xam_ingress(ingress_args + [
+            "input":params.bam,
+            "keep_unaligned":true,
+            "return_fastq":true,
+        ])
+    } 
 
 
   //get reference
