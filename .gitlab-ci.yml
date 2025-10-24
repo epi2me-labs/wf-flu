@@ -15,7 +15,12 @@ docker-run:
     parallel:
         matrix:
           - MATRIX_NAME: [
-            "default", "bad_reference", "no-nextclade", "single-sample"]
+              "default",
+              "bad_reference",
+              "no-nextclade",
+              "single-sample",
+              "bam"
+            ]
     rules:
         - if: ($CI_COMMIT_BRANCH == null || $CI_COMMIT_BRANCH == "dev-template")
           when: never
@@ -33,4 +38,8 @@ docker-run:
         - if: $MATRIX_NAME == "single-sample"
           variables:
             NF_WORKFLOW_OPTS: "--fastq test_data/fastq/barcode92 --downsample 50"
+        - if: $MATRIX_NAME == "bam"
+          variables:
+              NF_WORKFLOW_OPTS: "--bam test_data/bam --sample_sheet test_data/sample_sheet.csv --downsample 50 --override_basecaller_cfg dna_r10.4.1_e8.2_400bps_hac@v3.5.2"
+              AFTER_NEXTFLOW_CMD: cmp wf-flu/H3N2-strain-A-Wisconsin-15-2009-VR-1882DQ/typing/insaflu.typing.txt test_data/expected_results/expected_typing.txt
         
