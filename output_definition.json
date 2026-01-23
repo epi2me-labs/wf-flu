@@ -19,7 +19,7 @@
     "alignment": {
       "filepath": "./{{ alias }}/alignments/align.bam",
       "title": "Read alignments",
-      "description": "Read allignments per sample in BAM format.",
+      "description": "Read alignments per sample in BAM format.",
       "mime-type": "application/gzip",
       "optional": false,
       "type": "per-sample"

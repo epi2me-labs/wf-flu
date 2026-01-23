@@ -1,8 +1,16 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [v1.3.1]
+This patch release of wf-flu updates the workflow to use our latest template standard such that it can be released correctly. This release does not affect workflow outputs.
+### Changed
+- Update to wf-template v5.7.0 to maintain compliance with our latest wf-template standard, changing:
+  - ezCharts plotting library has been updated to 0.15.1, fixing software dependency incompatibilities for MSA plotting
+  - Removal of `watch_path` functionality within ingress as is no longer required
+- Updated CHANGELOG to be in line with internal formatting standards.
 
 ## [v1.3.0]
 This release of wf-flu adds BAM file input support and updates internal workflow naming. This does not affect the workflow outputs.
@@ -13,7 +21,7 @@ This release of wf-flu adds BAM file input support and updates internal workflow
 - Input functionality for `BAM` files with parameter `--bam`
 
 ## [v1.2.5]
-## Changed
+### Changed
 - Updated to wf-template v5.6.1, changing:
     - pre-commit configuration to resolve an internal dependency problem with flake8. This has no effect on the workflow
 ### Fixed
@@ -81,7 +89,7 @@ This release of wf-flu adds BAM file input support and updates internal workflow
 - Nextflow minimum version 23.04.2.
 
 ## [v0.0.10]
-### Updated
+### Changed
 - Update to schema to point to cloud demo
 
 ## [v0.0.9]
@@ -105,7 +113,7 @@ This release of wf-flu adds BAM file input support and updates internal workflow
 - Update check_sample_sheet.py
 - `--basecall_cfg` is now used to determine a suitable Medaka model, alternatively provide the name of a model with `--medaka_consensus_model` to override automatic selection
 - New fastqingress implementation
-### Updated
+### Changed
 - INSaFLU v10
 
 ## [v0.0.6]
