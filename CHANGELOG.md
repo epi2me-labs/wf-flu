@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Changed
+- Updated Medaka to v2.2.1, enabling compatibility with v5.2 basecalling models.
+- Update documentation pre-commit to use epi2melabs 0.0.62 to:
+  - Reorder the README docs sections to move related protocols after inputs and outputs.
+  - Replace labs.epi2me.io URLs to point at epi2me.nanoporetech.com.
+
+### Fixed
+- Updated to wf-template v6.0.0, fixing:
+  - configure_igv process crashes when reference names include special characters.
+- Bump epi2melabs version to 0.0.62 in pre-commit to remove pkg_resources and avoid a dependency error.
+
 ## [v1.3.1]
 This patch release of wf-flu updates the workflow to use our latest template standard such that it can be released correctly. This release does not affect workflow outputs.
 ### Changed

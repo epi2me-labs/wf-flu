@@ -126,9 +126,11 @@ process medakaVariants {
             "`--override_basecaller_cfg` parameter."
     }
     """
-    medaka consensus downsample.bam consensus.hdf --model "${basecall_model}:consensus"
-    medaka variant --gvcf reference.fasta consensus.hdf variants.vcf --verbose
-    medaka tools annotate --debug --pad 25 variants.vcf reference.fasta downsample.bam variants.annotated.vcf
+    medaka inference downsample.bam consensus.hdf --model "${basecall_model}:consensus"
+    medaka vcf --gvcf consensus.hdf reference.fasta variants.vcf --verbose
+    bcftools sort variants.vcf > variants.sorted.vcf
+    medaka tools annotate --debug --pad 25 variants.sorted.vcf reference.fasta downsample.bam variants.annotated.vcf
+
 
     bcftools filter -e "ALT='.'" variants.annotated.vcf | bcftools filter -o variants.annotated.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
     """
@@ -448,7 +450,6 @@ workflow {
     Map ingress_args = [
         "sample_sheet":params.sample_sheet,
         "analyse_unclassified":params.analyse_unclassified,
-        "stats":true,
         "allow_multiple_basecall_models": false,
     ]
 
@@ -466,26 +467,45 @@ workflow {
 
 
   //get reference
+    def reference
     if (params.reference == null){
       params.remove('reference')
-      params._reference = projectDir.resolve("./data/primer_schemes/V1/consensus_irma.fasta").toString()
+      reference = file(
+          projectDir.resolve("./data/primer_schemes/V1/consensus_irma.fasta"),
+          type: "file",
+          checkIfExists: true)
+      params._reference = reference.toString()
     } else {
-      params._reference = file(params.reference, type: "file", checkIfExists:true).toString()
+      reference = file(params.reference, type: "file", checkIfExists:true)
+      params._reference = reference.toString()
       params.remove('reference')
     }
 
     //get db
+    def blastdb
     if (params.blastdb == null){
       params.remove('blastdb')
-      params._blastdb = projectDir.resolve("./data/primer_schemes/V1/blastdb").toString()
+      blastdb = file(
+          projectDir.resolve("./data/primer_schemes/V1/blastdb"),
+          type: "dir",
+          checkIfExists: true)
+      params._blastdb = blastdb.toString()
     } else {
-      params._blastdb = file(params.blastdb, type: "dir", checkIfExists:true).toString()
+      blastdb = file(params.blastdb, type: "dir", checkIfExists:true)
+      params._blastdb = blastdb.toString()
       params.remove('blastdb')
     }
 
-    nextclade_data = projectDir.resolve("./data/nextclade.csv").toString()
+    nextclade_data = file(
+        projectDir.resolve("./data/nextclade.csv"),
+        type: "file",
+        checkIfExists: true)
 
-    pipeline(samples, params._reference, params._blastdb, nextclade_data)
+    pipeline(
+        samples,
+        Channel.value(reference),
+        Channel.value(blastdb),
+        Channel.value(nextclade_data))
     pipeline.out.results
     | toList
     | flatMap

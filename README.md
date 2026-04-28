@@ -39,7 +39,7 @@ ARM processor support: False
 
 These are instructions to install and run the workflow on command line.
 You can also access the workflow via the
-[EPI2ME Desktop application](https://labs.epi2me.io/downloads/).
+[EPI2ME Desktop application](https://epi2me.nanoporetech.com/downloads/).
 
 The workflow uses [Nextflow](https://www.nextflow.io/) to manage
 compute and software resources,
@@ -59,7 +59,8 @@ parameter as exemplified below.
 It is not required to clone or download the git repository
 in order to run the workflow.
 More information on running EPI2ME workflows can
-be found on our [website](https://labs.epi2me.io/wfindex).
+be found in the
+[documentation](https://epi2me.nanoporetech.com/epi2me-docs/wfquickstart/).
 
 The following command can be used to obtain the workflow.
 This will pull the repository in to the assets folder of
@@ -89,17 +90,6 @@ nextflow run epi2me-labs/wf-flu \
 	--sample_sheet 'wf-flu-demo/sample_sheet.csv' \
 	-profile standard
 ```
-
-For further information about running a workflow on
-the command line see https://labs.epi2me.io/wfquickstart/
-
-
-
-
-## Related protocols
-
-This workflow is designed to take input sequences that have been produced from [Oxford Nanopore Technologies](https://nanoporetech.com/) devices using this protocol: (https://community.nanoporetech.com/docs/prepare/library_prep_protocols/ligation-sequencing-influenza-whole-genome)
-Samples not prepared with this protocol may work sub-optimally or fail to complete succesfully.
 
 
 
@@ -232,6 +222,14 @@ Output files may be aggregated including information for all samples or provided
 | Read depth | ./{{ alias }}/coverage/depth.txt | Read depth per base. | per-sample |
 | Insaflu typing results | ./{{ alias }}/typing/insaflu.typing.txt | Insaflu abricate typing results. | per-sample |
 | Variants file | ./{{ alias }}/variants/variants.annotated.filtered.vcf | Called variants in VCF format. | per-sample |
+
+
+
+
+## Related protocols
+
+This workflow is designed to take input sequences that have been produced from [Oxford Nanopore Technologies](https://nanoporetech.com/) devices using this protocol: (https://community.nanoporetech.com/docs/prepare/library_prep_protocols/ligation-sequencing-influenza-whole-genome)
+Samples not prepared with this protocol may work sub-optimally or fail to complete succesfully.
 
 
 
