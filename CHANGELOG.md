@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v1.4.0]
 ### Changed
 - Updated Medaka to v2.2.1, enabling compatibility with v5.2 basecalling models.
 - Update documentation pre-commit to use epi2melabs 0.0.62 to:
