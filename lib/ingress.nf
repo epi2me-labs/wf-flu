@@ -43,7 +43,8 @@ def is_excluded(Path p, Map margs) {
  * Take a channel of the shape `[meta, reads, path-to-stats-dir | null]` (or
  * `[meta, [reads, index], path-to-stats-dir | null]` in the case of XAM) and extract the
  * run IDs and basecall model, from the `run_ids` and `basecaller` files in the stats
- * directory, into the metamap. If the path to the stats dir is `null`, add an empty list.
+ * directory, into the metamap. If the path to the stats dir is `null` due to samples with no reads,
+ * add an empty list.
  *
  * @param ch: input channel of shape `[meta, reads, path-to-stats-dir | null]`
  * @param allow_multiple_basecall_models: Boolean. If true, emit any sample to have been basecalled 
@@ -58,6 +59,7 @@ def add_run_IDs_and_basecall_models_to_meta(ch, boolean allow_multiple_basecall_
     // extract run_ids from fastcat stats / bamstats results and add to metadata as well
     // as `ingressed_run_ids`
     ch = ch | map { meta, reads, stats ->
+        // stats will be null only if the sample had no reads (empty BAM/FASTQ)
         if (stats) {
             def run_ids = stats.resolve("run_ids").splitText().collect { it.strip() }
             ingressed_run_ids += run_ids
@@ -112,6 +114,7 @@ def add_number_of_reads_to_meta(ch, String input_type_format) {
     // extract reads from fastcat stats / bamstats results and add to metadata
     ch = ch | map { meta, reads, stats ->
         // Check that stats directory is present.
+        // stats will be null only if the sample had no reads (empty BAM/FASTQ)
         if (stats) {
             if (input_type_format == "fastq") {
                 // Stats from fastcat
@@ -148,7 +151,7 @@ def add_number_of_reads_to_meta(ch, String input_type_format) {
  * with elements of `[metamap, seqs.fastq.gz | null, path-to-fastcat-stats | null]`.
  * The second item is `null` for sample sheet entries without a matching barcode
  * directory. The last item is `null` if `fastcat` was not run (it is only run on
- * directories containing more than one FASTQ file or when `stats: true`).
+ * directories containing one or more FASTQ files).
  *
  * @param arguments: map with arguments containing
  *  - "input": path to either: (i) input FASTQ file, (ii) top-level directory containing
@@ -159,7 +162,6 @@ def add_number_of_reads_to_meta(ch, String input_type_format) {
  *  - "analyse_unclassified": boolean. Whether to ingress unclassified (failed to demux) reads
  *  - "analyse_fail": boolean. Whether to ingress any sequence files contained in `*_fail`
  *     directories.
- *  - "stats": boolean whether to write the `fastcat` stats
  *  - "fastcat_extra_args": string with extra arguments to pass to `fastcat`
  *  - "required_sample_types": list of zero or more required sample types expected to be present
  *     in the sample sheet
@@ -174,7 +176,7 @@ def add_number_of_reads_to_meta(ch, String input_type_format) {
  *  `.fastq.gz` file with the (potentially concatenated) sequences and the third is
  *  the path to the directory with the `fastcat` statistics. The second element is
  *  `null` for sample sheet entries for which no corresponding barcode directory was
- *  found. The third element is `null` if `fastcat` was not run.
+ *  found. The third element is `null` if there were no reads.
  */
 def fastq_ingress(Map arguments)
 {
@@ -192,24 +194,8 @@ def fastq_ingress(Map arguments)
 
     def input = get_valid_inputs(margs, fq_extensions)
 
-    def ch_result
-    if (margs.stats) {
-        // run fastcat regardless of input type
-        ch_result = fastcat(input.files.mix(input.dirs), margs, "FASTQ")
-    } else {
-        // run `fastcat` only on directories and rename / compress single files
-        ch_dir = fastcat(input.dirs, margs, "FASTQ")
-            .map { meta, path, stats -> [meta, path] }
-        def ch_file
-        if (margs["fastq_chunk"] > 0) {
-            ch_file = split_fq_file(input.files, margs["fastq_chunk"])
-        } else {
-            ch_file = move_or_compress_fq_file(input.files)
-        }
-        ch_result = ch_dir 
-            | mix(ch_file) 
-            | map { meta, path -> [meta, path, null] }
-    }
+    def ch_result = fastcat(input.files.mix(input.dirs), margs, "FASTQ")
+  
     // TODO: xam_ingress mixes in a .no_files channel here. Do we need to do the same? 
 
     // The above may have returned a channel with multiple fastqs if chunking
@@ -250,10 +236,9 @@ def fastq_ingress(Map arguments)
 /**
  * Take a map of input arguments, find valid (u)BAM inputs, and return a channel
  * with elements of `[metamap, reads.bam | null, path-to-bamstats-results | null]`.
- * The second item is `null` for sample sheet entries without a matching barcode
+ * The second and last items are `null` for sample sheet entries without a matching barcode
  * directory or samples containing only uBAM files when `keep_unaligned` is `false`.
- * The last item is `null` if `bamstats` was not run (it is only run when `stats:
- * true`).
+ * The last item is `null` if `bamstats` was not run due to no reads for the sample.
  *
  * @param arguments: map with arguments containing
  *  - "input": path to either: (i) input (u)BAM file, (ii) top-level directory
@@ -264,7 +249,6 @@ def fastq_ingress(Map arguments)
  *  - "analyse_unclassified": boolean. Whether to ingress unclassified (failed to demux) reads
  *  - "analyse_fail": boolean. Whether to ingress any sequence files contained in `*_fail`
  *    directories.
- *  - "stats": boolean whether to run `bamstats`
  *  - "keep_unaligned": boolean whether to include uBAM files
  *  - "return_fastq": boolean whether to convert to FASTQ (this will always run
  *    `fastcat`)
@@ -508,34 +492,27 @@ def xam_ingress(Map arguments)
         ch_catsorted,
     )
 
-    // run `bamstats` if requested
-    if (margs["stats"]) {
-        // branch and run `bamstats` only on the non-`null` paths
-        ch_result = ch_result.branch { meta, path, index ->
-            has_reads: path
-            is_null: true
-        }
-        ch_bamstats = bamstats(ch_result.has_reads, margs)
-
-        // the channel comes from xam_ingress also have the BAM index in it.
-        // Handle this by placing them in a nested array, maintaining the structure 
-        // from fastq_ingress. We do not use variable name as assigning variable
-        // name with a tuple not matching (e.g. meta, bam, bai, stats <- [meta, bam, stats] )
-        // causes the workflow to crash.
-        ch_result = ch_bamstats
-        | map{
-            it[3] ? [it[0], [it[1], it[2]], it[3]] : it
-        }
-        | map{
-            it.flatten()
-        }
-        | mix(
-            ch_result.is_null.map{it + [null]}
-        )
-    } else {
-        // add `null` instead of path to `bamstats` results dir
-        ch_result = ch_result | map { meta, bam, bai -> [meta, bam, bai, null] }
+    ch_result = ch_result.branch { meta, path, index ->
+        has_reads: path
+        is_null: true
     }
+    ch_bamstats = bamstats(ch_result.has_reads, margs)
+
+    // the channel comes from xam_ingress also have the BAM index in it.
+    // Handle this by placing them in a nested array, maintaining the structure 
+    // from fastq_ingress. We do not use variable name as assigning variable
+    // name with a tuple not matching (e.g. meta, bam, bai, stats <- [meta, bam, stats] )
+    // causes the workflow to crash.
+    ch_result = ch_bamstats
+    | map{
+        it[3] ? [it[0], [it[1], it[2]], it[3]] : it
+    }
+    | map{
+        it.flatten()
+    }
+    | mix(
+        ch_result.is_null.map{it + [null]}
+    )
 
     // Remove metadata that are unnecessary downstream:
     // meta.src_xai: not needed, as it will be part of the channel as a file
@@ -856,7 +833,6 @@ Map parse_arguments(String func_name, Map arguments, Map extra_kwargs=[:]) {
         "sample_sheet": null,
         "analyse_unclassified": false,
         "analyse_fail": false,
-        "stats": true,
         "required_sample_types": [],
         "per_read_stats": false,
         "allow_multiple_basecall_models": false,
@@ -1171,7 +1147,8 @@ def get_sample_sheet(Path sample_sheet, ArrayList required_sample_types) {
     // in STDOUT. Thus, we use the somewhat clunky construct with `concat` and `last`
     // below. This lets the CSV channel only start to emit once the error checking is
     // done.
-    ch_err = validate_sample_sheet(sample_sheet, required_sample_types).map { stdoutput, sample_sheet_file ->
+    boolean no_barcode_mode = false  // CW-7025
+    ch_err = validate_sample_sheet(sample_sheet, required_sample_types, no_barcode_mode).map { stdoutput, sample_sheet_file ->
         // check if there was an error message
         if (stdoutput) error "Invalid sample sheet: ${stdoutput}."
         stdoutput
@@ -1225,12 +1202,14 @@ process validate_sample_sheet {
     input:
         path "sample_sheet.csv"
         val required_sample_types
+        val no_barcode
     output:
         tuple stdout, path("sample_sheet.csv")
     script:
     String req_types_arg = required_sample_types ? "--required_sample_types "+required_sample_types.join(" ") : ""
+    String no_barcode_arg = no_barcode ? "--no_barcode" : ""
     """
-    workflow-glue check_sample_sheet sample_sheet.csv $req_types_arg
+    workflow-glue check_sample_sheet sample_sheet.csv $req_types_arg $no_barcode_arg
     """
 }
 
