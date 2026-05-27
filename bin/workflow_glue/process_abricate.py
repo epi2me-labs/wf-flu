@@ -1,34 +1,24 @@
 #!/usr/bin/env python
-"""Functions to help us parse files for flu."""
+"""Turn raw Abricate output into the one typing call the workflow stores.
+
+Abricate gives us a table of hits, but the workflow stores a compact JSON
+typing result. This file runs the shared resolver logic and writes that JSON
+for the rest of the pipeline.
+"""
 import json
 
-import pandas as pd
-
+from .typing_resolver import (  # noqa: ABS101
+    as_processed_json,
+    load_typing_table,
+    resolve_typing_calls,
+)
 from .util import get_named_logger, wf_parser  # noqa: ABS101
 
 
 def parse_typing_file(typing_file):
-    """Summarise abricate results."""
-    abricate = pd.read_csv(typing_file, delimiter="\t", keep_default_na=False)
-    if abricate.empty:
-        result = {
-            'HA': None,
-            'NA': None,
-            'type': None
-        }
-        return result
-
-    # output this result
-    result = {
-        'HA': abricate[abricate['GENE'] == 'HA']['RESISTANCE'].unique().tolist(),
-        'NA': abricate[abricate['GENE'] == 'NA']['RESISTANCE'].unique().tolist(),
-        'type': abricate[abricate['GENE'] == 'M1']['RESISTANCE'].unique().tolist()
-    }
-
-    for k, v in result.items():
-        if not v:
-            result[k] = ['undetermined']
-    return result
+    """Summarise Abricate results as a single best typing call."""
+    abricate = load_typing_table(typing_file)
+    return as_processed_json(resolve_typing_calls(abricate))
 
 
 def main(args):
@@ -37,7 +27,7 @@ def main(args):
     result = parse_typing_file(args.typing)
 
     with open(args.output, 'w') as f:
-        f.write(json.dumps(result, indent=4))
+        json.dump(result, f, indent=4)
 
     logger.info(f"Typing result written to {args.output}.")
 

@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- Added a rough first-pass typing stage that selects a sample-specific reference panel before the final polishing pass.
+- Added additional test coverage which does not affect users.
+
+### Changed
+- Replaced the report coverage heatmap with a bar chart of reads mapped to the selected final reference panel, because per-sample panel selection makes the old heatmap misleading.
+- Centralised typing resolution so the rough selection pass and final reported typing use the same decision logic.
+
+### Fixed
+- Improved influenza B typing and lineage calls by avoiding final polishing against a single omnibus reference panel.
+- Additional CI testing added which does not affect users.
+
 ## [v1.4.0]
 ### Changed
 - Updated Medaka to v2.2.1, enabling compatibility with v5.2 basecalling models.
@@ -125,8 +138,7 @@ This release of wf-flu adds BAM file input support and updates internal workflow
 - Update check_sample_sheet.py
 - `--basecall_cfg` is now used to determine a suitable Medaka model, alternatively provide the name of a model with `--medaka_consensus_model` to override automatic selection
 - New fastqingress implementation
-### Changed
-- INSaFLU v10
+- Updated INSaFLU to v10
 
 ## [v0.0.6]
 ### Fixed
