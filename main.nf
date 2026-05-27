@@ -21,10 +21,9 @@ process alignReads {
     label "wfflu"
     cpus 2
     input:
-        tuple val(meta), path("reads.fastq.gz")
-        path "reference.fasta"
+        tuple val(meta), path("reads.fastq.gz"), path("reference.fasta")
     output:
-        tuple val(meta), path("align.bam"), path("align.bam.bai"), emit: alignments
+        tuple val(meta), path("align.bam"), path("align.bam.bai"), path("reference.fasta"), emit: alignments
         tuple path("align.bamstats"), path("align.bam.summary"), emit: bamstats
     shell:
     """
@@ -42,11 +41,12 @@ process coverageCalc {
       label "wfflu"
       cpus 1
       input:
-          tuple val(meta), path("align.bam"), path("align.bam.bai")
+          tuple val(meta), path("align.bam"), path("align.bam.bai"), path("reference.fasta")
       output:
-          tuple val(meta), path("depth.txt")
+          tuple val(meta), path("depth.txt"), path("mapped_reads.txt"), path("reference.fasta")
       """
       samtools depth -aa align.bam -Q 20 -q 1 > depth.txt
+      samtools view -c -F 4 align.bam > mapped_reads.txt
       """
 
 }
@@ -55,15 +55,14 @@ process downSample {
     label 'wfflu'
     cpus 1
     input:
-        tuple val(meta), path("align.bam"), path("align.bam.bai")
-        path "reference.fasta"
+        tuple val(meta), path("align.bam"), path("align.bam.bai"), path("reference.fasta")
     output:
-        tuple val(meta), path("all_merged.sorted.bam"), path("all_merged.sorted.bam.bai"), emit: alignments
+        tuple val(meta), path("all_merged.sorted.bam"), path("all_merged.sorted.bam.bai"), path("reference.fasta"), emit: alignments
     """
     # get region info from fasta
     samtools faidx reference.fasta
     cut -f1-2 reference.fasta.fai > regions.txt
-    
+
     # for every region we're going to downsample separatley
     while read -r region length;
     do
@@ -89,7 +88,7 @@ process downSample {
 
       lines=( ${params.downsample} / 2 )
 
-      # get header 
+      # get header
       samtools view -H \${region}.bam > \${region}_all.sam
 
       samtools view -F16 \${region}.bam | shuf -n \${lines} >> \${region}_all.sam
@@ -110,10 +109,9 @@ process medakaVariants {
     label "medaka"
     cpus 1
     input:
-        tuple val(meta), path("downsample.bam"), path("downsample.bam.bai")
-        path("reference.fasta")
+        tuple val(meta), path("downsample.bam"), path("downsample.bam.bai"), path("reference.fasta")
     output:
-        tuple val(meta), path("variants.annotated.filtered.vcf")
+        tuple val(meta), path("variants.annotated.filtered.vcf"), path("reference.fasta")
     script:
     // we use `params.override_basecaller_cfg` if present; otherwise use
     // `meta.basecall_models[0]` (there should only be one value in the list because
@@ -140,8 +138,7 @@ process makeConsensus {
     label "wfflu"
     cpus 1
     input:
-        tuple val(meta), path("variants.annotated.filtered.vcf"), path("depth.txt")
-        path "reference.fasta"
+        tuple val(meta), path("variants.annotated.filtered.vcf"), path("depth.txt"), path("reference.fasta")
     output:
         tuple val(meta), path("draft.consensus.fasta")
     """
@@ -157,8 +154,151 @@ process typeFlu {
     label "wfflutyping"
     cpus 1
     input:
-        tuple val(meta), path("consensus.fasta")
-        path("blast_db")
+        tuple val(meta), path("consensus.fasta"), path("blast_db")
+    output:
+        tuple val(meta), path("insaflu.typing.txt"), emit: typing
+        path "abricate.version", emit: version
+    """
+    abricate --version | sed 's/ /,/' > abricate.version
+    abricate --datadir blast_db --db insaflu -minid 70 -mincov 60 --quiet consensus.fasta 1> insaflu.typing.txt
+    """
+}
+
+// Nextflow does not allow us to invoke the same process twice in one workflow
+// scope, so the first-pass subtype-selection path needs its own process names.
+process roughAlignReads {
+    label "wfflu"
+    cpus 2
+    input:
+        tuple val(meta), path("reads.fastq.gz"), path("reference.fasta")
+    output:
+        tuple val(meta), path("align.bam"), path("align.bam.bai"), path("reference.fasta"), emit: alignments
+        tuple path("align.bamstats"), path("align.bam.summary"), emit: bamstats
+    shell:
+    """
+    mini_align -i reads.fastq.gz -r reference.fasta -p align_tmp -t 2 -m
+
+    # keep only mapped reads
+    samtools view --write-index -F 4 align_tmp.bam -o align.bam##idx##align.bam.bai
+
+    # get stats from bam
+    stats_from_bam -o align.bamstats -s align.bam.summary -t 2 align.bam
+    """
+}
+
+process roughCoverageCalc {
+      label "wfflu"
+      cpus 1
+      input:
+          tuple val(meta), path("align.bam"), path("align.bam.bai"), path("reference.fasta")
+      output:
+          tuple val(meta), path("depth.txt"), path("reference.fasta")
+      """
+      samtools depth -aa align.bam -Q 20 -q 1 > depth.txt
+      """
+
+}
+
+process roughDownSample {
+    label 'wfflu'
+    cpus 1
+    input:
+        tuple val(meta), path("align.bam"), path("align.bam.bai"), path("reference.fasta")
+    output:
+        tuple val(meta), path("all_merged.sorted.bam"), path("all_merged.sorted.bam.bai"), path("reference.fasta"), emit: alignments
+    """
+    # get region info from fasta
+    samtools faidx reference.fasta
+    cut -f1-2 reference.fasta.fai > regions.txt
+
+    # for every region we're going to downsample separately
+    while read -r region length;
+    do
+
+      # get upper and lower bounds of reference span
+
+      upper=`echo \$((\${length}+(\${length}*10/100)))`
+      lower=`echo \$((\${length}-(\${length}*10/100)))`
+
+      # filter reads in region and covering region
+
+      samtools view -bh align.bam -e "length(seq)>\${lower} && length(seq)<\${upper}" \${region} > \${region}.bam;
+
+      # ignore regions with no reads
+      count=`samtools view -c \${region}.bam`
+
+      if [ "\${count}" -eq "0" ];
+      then
+        echo "no reads in \${region} so continuing"
+        cp \${region}.bam \${region}_all.bam
+        continue;
+      fi
+
+      lines=( ${params.downsample} / 2 )
+
+      # get header
+      samtools view -H \${region}.bam > \${region}_all.sam
+
+      samtools view -F16 \${region}.bam | shuf -n \${lines} >> \${region}_all.sam
+      samtools view -f16 \${region}.bam | shuf -n \${lines} >> \${region}_all.sam
+      samtools view -bh \${region}_all.sam > \${region}_all.bam
+
+    done < regions.txt
+
+    samtools merge all_merged.bam *_all.bam
+    samtools sort all_merged.bam > all_merged.sorted.bam
+    samtools index all_merged.sorted.bam
+    echo "done"
+
+    """
+}
+
+process roughMedakaVariants {
+    label "medaka"
+    cpus 1
+    input:
+        tuple val(meta), path("downsample.bam"), path("downsample.bam.bai"), path("reference.fasta")
+    output:
+        tuple val(meta), path("variants.annotated.filtered.vcf"), path("reference.fasta")
+    script:
+    String basecall_model = params.override_basecaller_cfg ?: meta.basecall_models[0]
+    if (!basecall_model) {
+        error "Found no basecall model information in the input data for " + \
+            "sample '$meta.alias'. Please provide it with the " + \
+            "`--override_basecaller_cfg` parameter."
+    }
+    """
+    medaka inference downsample.bam consensus.hdf --model "${basecall_model}:consensus"
+    medaka vcf --gvcf consensus.hdf reference.fasta variants.vcf --verbose
+    bcftools sort variants.vcf > variants.sorted.vcf
+    medaka tools annotate --debug --pad 25 variants.sorted.vcf reference.fasta downsample.bam variants.annotated.vcf
+
+
+    bcftools filter -e "ALT='.'" variants.annotated.vcf | bcftools filter -o variants.annotated.filtered.vcf -O v -e "INFO/DP<${params.min_coverage}" -
+    """
+}
+
+process roughMakeConsensus {
+    label "wfflu"
+    cpus 1
+    input:
+        tuple val(meta), path("variants.annotated.filtered.vcf"), path("depth.txt"), path("reference.fasta")
+    output:
+        tuple val(meta), path("draft.consensus.fasta")
+    """
+    awk '{if (\$3<${params.min_coverage}) print \$1"\t"\$2+1}' depth.txt > mask.regions
+    bgzip variants.annotated.filtered.vcf
+    tabix variants.annotated.filtered.vcf.gz
+
+    bcftools consensus --mask mask.regions  --mark-del '-' --mark-ins lc --fasta-ref reference.fasta -o draft.consensus.fasta variants.annotated.filtered.vcf.gz
+    """
+}
+
+process roughTypeFlu {
+    label "wfflutyping"
+    cpus 1
+    input:
+        tuple val(meta), path("consensus.fasta"), path("blast_db")
     output:
         tuple val(meta), path("insaflu.typing.txt"), emit: typing
         path "abricate.version", emit: version
@@ -181,13 +321,31 @@ process processType {
     """
 }
 
+process selectReference {
+    label "wfflu"
+    cpus 1
+    input:
+        tuple val(meta), path("insaflu.typing.txt"), path("reference_panel.fasta")
+    output:
+        tuple val(meta), path("reference.fasta"), path("selected_reference.json"), emit: references
+    script:
+    String alias = meta.alias
+    """
+    workflow-glue select_reference \
+        --typing insaflu.typing.txt \
+        --reference reference_panel.fasta \
+        --output reference.fasta \
+        --summary selected_reference.json \
+        --sample_alias "${alias}"
+    """
+}
+
 
 process prepNextclade {
     label "wfflu"
     cpus 1
     input:
-        tuple val(meta), path("typing.json"), path("consensus.fasta")
-        path "nextclade_data"
+        tuple val(meta), path("typing.json"), path("consensus.fasta"), path("nextclade_data")
     output:
         path "datasets", optional: true
     script:
@@ -335,34 +493,67 @@ workflow pipeline {
 
         stats = for_report.stats.collect()
 
-        alignment = alignReads(samples.map{ meta, reads, stats -> [ meta,reads ] }, reference)
-        coverage = coverageCalc(alignment.alignments)
+        // First pass: type against the broad reference panel so we can choose a
+        // narrower per-sample reference before final polishing.
+        rough_inputs = samples.map { meta, reads, _ -> [meta, reads, reference] }
+        rough_alignment = roughAlignReads(rough_inputs)
+        rough_coverage = roughCoverageCalc(rough_alignment.alignments)
 
         // do crude downsampling
+        if (params.rbk){
+            println("RBK data - NOT Downsampling!!!")
+            rough_downsample = rough_alignment
+        } else if (params.downsample != null){
+            println("Downsampling!!!")
+            rough_downsample = roughDownSample(rough_alignment.alignments)
+        } else {
+            println("NOT Downsampling!!!")
+            rough_downsample = rough_alignment
+        }
+
+        rough_variants = roughMedakaVariants(rough_downsample.alignments)
+        rough_for_draft = rough_variants.join(rough_coverage)
+        | map { meta, vcf, ref, depth, _ -> [ meta, vcf, depth, ref ] }
+
+        rough_draft = roughMakeConsensus(rough_for_draft)
+        rough_flu_type = roughTypeFlu(rough_draft.map { meta, consensus -> [ meta, consensus, blastdb ] })
+        sample_references = selectReference(
+            rough_flu_type.typing.map { meta, typing_txt -> [ meta, typing_txt, reference ] }
+        )
+
+        // Second pass: re-run the core polishing steps against the selected
+        // sample-specific reference set.
+        final_inputs = samples.map { meta, reads, _ -> [meta, reads] }
+        .join(sample_references.references)
+        .map { meta, reads, selected_reference, _ -> [ meta, reads, selected_reference ] }
+
+        alignment = alignReads(final_inputs)
+        coverage = coverageCalc(alignment.alignments)
+
         if (params.rbk){
             println("RBK data - NOT Downsampling!!!")
             downsample = alignment
         } else if (params.downsample != null){
             println("Downsampling!!!")
-            downsample = downSample(alignment.alignments, reference)
+            downsample = downSample(alignment.alignments)
         } else {
             println("NOT Downsampling!!!")
             downsample = alignment
         }
 
-        variants = medakaVariants(downsample.alignments, reference)
-
+        variants = medakaVariants(downsample.alignments)
         for_draft = variants.join(coverage)
+        | map { meta, vcf, ref, depth, mapped_reads, _ -> [ meta, vcf, depth, ref ] }
 
-        draft = makeConsensus(for_draft, reference)
-        flu_type = typeFlu(draft, blastdb)
+        draft = makeConsensus(for_draft)
+        flu_type = typeFlu(draft.map { meta, consensus -> [ meta, consensus, blastdb ] })
 
         processed_type = processType(flu_type.typing)
 
 
         nextclade_prep = prepNextclade(
-            processed_type.join(draft, remainder: true),
-            nextclade_data
+            processed_type.join(draft)
+            .map { meta, typing_json, consensus -> [ meta, typing_json, consensus, nextclade_data ] }
         )
 
         
@@ -419,11 +610,13 @@ workflow pipeline {
             report | map { [it[0] , null] },
             report | map { [it[1], null] },
             alignment.alignments
-            | map { meta, bam, bai -> [bam, "$meta.alias/alignments"] },
+            | map { meta, bam, bai, ref -> [bam, "$meta.alias/alignments"] },
             variants
-            | map { meta, vcf -> [vcf, "$meta.alias/variants"]},
+            | map { meta, vcf, ref -> [vcf, "$meta.alias/variants"]},
             coverage
-            | map { meta, depth -> [depth, "$meta.alias/coverage"]},
+            | map { meta, depth, mapped_reads, ref -> [depth, "$meta.alias/coverage"]},
+            coverage
+            | map { meta, depth, mapped_reads, ref -> [mapped_reads, "$meta.alias/coverage"]},
             draft
             | map { meta, fa -> [fa, "$meta.alias/consensus"]},
             flu_type.typing
@@ -503,9 +696,9 @@ workflow {
 
     pipeline(
         samples,
-        Channel.value(reference),
-        Channel.value(blastdb),
-        Channel.value(nextclade_data))
+        reference,
+        blastdb,
+        nextclade_data)
     pipeline.out.results
     | toList
     | flatMap
